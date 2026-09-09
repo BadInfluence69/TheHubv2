@@ -1,5 +1,3 @@
-# TheHubv2
-
 # The Hub v2
 
 **A self-hosted, ad-free video and community platform. No algorithm, no gatekeeping, no tracking.**
