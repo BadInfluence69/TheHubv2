@@ -1,0 +1,312 @@
+--- a/hub/views/media.py
++++ b/hub/views/media.py
+@@ -1,9 +1,10 @@
+ """
+ Serving local files.
+ 
+-Byte-range streaming so seeking works, on-demand thumbnail extraction with
+-ffmpeg, on-the-fly transcoding for containers browsers won't touch, and a
+-narrow proxy for remote CDN streams.
++When a file is mirrored to the CDN we hand back a signed URL and the bytes
++never touch this process. Everything else keeps the old path: byte-range
++streaming so seeking works, on-demand thumbnail extraction with ffmpeg, and
++on-the-fly transcoding for containers browsers won't touch.
+ """
+ from __future__ import annotations
+ 
+@@ -15,12 +16,12 @@
+ import subprocess
+ from pathlib import Path
+ 
+-import requests
+ from flask import (
+     Blueprint,
+     Response,
+     abort,
+     current_app,
++    jsonify,
+     redirect,
+     render_template,
+     request,
+@@ -30,7 +31,7 @@
+ 
+ from ..repo import videos as videos_repo
+ from ..security import current_user, login_required
+-from ..services import local_media, streams
++from ..services import cdn, local_media, streams
+ 
+ log = logging.getLogger(__name__)
+ bp = Blueprint("media", __name__)
+@@ -85,12 +86,55 @@
+     if not path:
+         abort(404)
+ 
++    # Handoff: if the CDN has this file, send the client there and stop.
++    # Nothing below this line runs, so no origin bandwidth is spent.
++    edge_url = cdn.url_for_path(path)
++    if edge_url:
++        response = redirect(edge_url, code=302)
++        response.headers["Cache-Control"] = "no-store"
++        return response
++
+     if _needs_transcode(path):
+         return _transcode_response(path)
+ 
+     return _ranged_file_response(path)
+ 
+ 
++@bp.route("/api/media/<video_id>/url")
++@login_required
++def media_url(video_id: str):
++    """
++    Metadata only: where the bytes are, and when that answer goes stale.
++
++    The player calls this instead of pointing <video> at this server. When
++    `direct` is false the CDN can't serve this file (not mirrored, or a
++    container that needs the transcode pipe) and `url` is the local route.
++    """
++    path = local_media.safe_path(video_id)
++    if not path:
++        return jsonify({"error": "That file isn't on the drive any more."}), 404
++
++    edge_url = cdn.url_for_path(path)
++    if edge_url:
++        return jsonify(
++            {
++                "url": edge_url,
++                "direct": True,
++                "expires_at": cdn.expires_at(),
++                "mimetype": mimetypes.guess_type(str(path))[0] or "video/mp4",
++            }
++        )
++
++    return jsonify(
++        {
++            "url": f"/media/stream/{video_id}",
++            "direct": False,
++            "expires_at": None,
++            "mimetype": "video/mp4",
++        }
++    )
++
++
+ def _needs_transcode(path: Path) -> bool:
+     if path.suffix.lower() in TRANSCODE_EXTENSIONS:
+         codec = streams.probe_video_codec(str(path)).lower()
+@@ -261,63 +305,13 @@
+     path = local_media.safe_path(video_id)
+     if not path:
+         abort(404)
+-    return send_file(path, as_attachment=True, download_name=path.name)
+-
+-
+-# --------------------------------------------------------------------------
+-# Proxy for remote streams
+-# --------------------------------------------------------------------------
+-@bp.route("/proxy/stream")
+-def proxy_stream():
+-    """
+-    Forwards a CDN stream through this server, which fixes the CORS and
+-    referrer checks that otherwise break playback in the browser.
+-
+-    Only hosts yt-dlp has actually handed us are forwarded to — see
+-    streams.host_allowed. Without that check this route would be an open
+-    proxy for anything on the internal network.
+-    """
+-    url = request.args.get("url", "")
+-    if not url or not streams.host_allowed(url):
+-        abort(403, description="That URL isn't one this server will fetch.")
+-
+-    headers = {
+-        "User-Agent": (
+-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+-            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+-        ),
+-        "Referer": "https://www.youtube.com/",
+-    }
+-    if "Range" in request.headers:
+-        headers["Range"] = request.headers["Range"]
+ 
+-    try:
+-        upstream = requests.get(url, headers=headers, stream=True, timeout=20)
+-    except requests.RequestException as exc:
+-        log.warning("Proxy fetch failed: %s", exc)
+-        abort(502, description="The upstream server didn't answer.")
+-
+-    response_headers = {
+-        "Content-Type": upstream.headers.get("Content-Type", "video/mp4"),
+-        "Accept-Ranges": upstream.headers.get("Accept-Ranges", "bytes"),
+-    }
+-    for header in ("Content-Range", "Content-Length"):
+-        if header in upstream.headers:
+-            response_headers[header] = upstream.headers[header]
+-
+-    def generate():
+-        try:
+-            for chunk in upstream.iter_content(chunk_size=CHUNK):
+-                if chunk:
+-                    yield chunk
+-        finally:
+-            upstream.close()
++    # require_playable=False: a download doesn't care about the container.
++    edge_url = cdn.url_for_path(path, require_playable=False)
++    if edge_url:
++        return redirect(edge_url, code=302)
+ 
+-    return Response(
+-        stream_with_context(generate()),
+-        status=upstream.status_code,
+-        headers=response_headers,
+-    )
++    return send_file(path, as_attachment=True, download_name=path.name)
+ 
+ 
+ # --------------------------------------------------------------------------
+@@ -343,6 +337,12 @@
+     if hls_dir not in target.parents or not target.is_file():
+         abort(404)
+ 
++    # Segments are the bandwidth; the playlist is a few hundred bytes and has
++    # to stay local so it keeps updating as the encoder writes.
++    live_base = (current_app.config.get("CDN_LIVE_BASE_URL") or "").rstrip("/")
++    if live_base and target.suffix.lower() in (".ts", ".m4s", ".mp4"):
++        return redirect(f"{live_base}/{filename}", code=302)
++
+     mimetype = {
+         ".m3u8": "application/vnd.apple.mpegurl",
+         ".ts": "video/mp2t",
+--- a/hub/views/watch.py
++++ b/hub/views/watch.py
+@@ -19,7 +19,7 @@
+ from ..repo import users as users_repo
+ from ..repo import videos as videos_repo
+ from ..security import current_user, login_required
+-from ..services import local_media, recommend, streams, tubi, youtube_search
++from ..services import cdn, local_media, recommend, streams, tubi, youtube_search
+ 
+ log = logging.getLogger(__name__)
+ bp = Blueprint("watch", __name__)
+@@ -98,12 +98,15 @@
+             path = local_media.safe_path(video_id)
+             if not path:
+                 return None, "That file isn't on the drive any more."
++            edge_url = cdn.url_for_path(path)
+             return {
+-                "url": url_for("media.stream_local", video_id=video_id),
++                "url": edge_url or url_for("media.stream_local", video_id=video_id),
+                 "qualities": [],
+                 "subtitles": [],
+                 "chapters": [],
+                 "direct": True,
++                "cdn": bool(edge_url),
++                "expires_at": cdn.expires_at() if edge_url else None,
+             }, ""
+ 
+         if video_id.startswith("tubi_"):
+--- a/hub/config.py
++++ b/hub/config.py
+@@ -112,6 +112,24 @@
+     CACHE_DIR = _path("CACHE_DIR", BASE_DIR / "data" / "cache")
+     HLS_DIR = _path("HLS_DIR", BASE_DIR / "data" / "hls")
+ 
++    # ---- CDN offload ---------------------------------------------------
++    # "off" keeps every byte flowing through this server. "hmac" signs URLs
++    # against an edge that already mirrors your media folders. "s3" presigns
++    # against an S3-compatible bucket (S3, R2, B2, MinIO).
++    CDN_MODE = os.getenv("CDN_MODE", "off").lower()
++    CDN_BASE_URL = os.getenv("CDN_BASE_URL", "").rstrip("/")
++    CDN_SIGNING_KEY = os.getenv("CDN_SIGNING_KEY", "")
++    CDN_KEY_PREFIX = os.getenv("CDN_KEY_PREFIX", "")
++    CDN_URL_TTL = _int("CDN_URL_TTL", 21600)
++    # Separate origin for live HLS segments; leave blank to serve them here.
++    CDN_LIVE_BASE_URL = os.getenv("CDN_LIVE_BASE_URL", "").rstrip("/")
++
++    S3_BUCKET = os.getenv("S3_BUCKET", "")
++    S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "")
++    S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY", "")
++    S3_SECRET_KEY = os.getenv("S3_SECRET_KEY", "")
++    S3_REGION = os.getenv("S3_REGION", "auto")
++
+     # ---- External tools ------------------------------------------------
+     YTDLP_PATH = _resolve_binary("YTDLP_PATH", "yt-dlp")
+     FFMPEG_PATH = _resolve_binary("FFMPEG_PATH", "ffmpeg")
+--- a/hub/static/js/player.js
++++ b/hub/static/js/player.js
+@@ -112,6 +112,69 @@
+         });
+     }
+ 
++    /* ---------------------------------------------------------- cdn direct */
++    /*
++       Local files stream from the CDN edge, not from this server. The signed
++       URL expires, so two things can go wrong mid-watch: the tab was left
++       paused past the TTL, or the edge 403s on a seek. Both are fixed by
++       asking the server for a fresh URL — a few hundred bytes of JSON — and
++       putting the playhead back where it was.
++    */
++    async function freshMediaUrl() {
++        const data = await Hub.api(`/api/media/${encodeURIComponent(videoId)}/url`);
++        return data && data.url ? data : null;
++    }
++
++    function swapSource(url) {
++        if (!video) return;
++        const at = video.currentTime;
++        const wasPlaying = !video.paused;
++        video.src = url;
++        video.load();
++        video.addEventListener(
++            "loadedmetadata",
++            () => {
++                if (at) video.currentTime = at;
++                if (wasPlaying) video.play().catch(() => {});
++            },
++            { once: true }
++        );
++    }
++
++    function initCdnDirect() {
++        if (!video || !videoId || !String(videoId).startsWith("local_")) return;
++
++        let expiresAt = Number(config.expiresAt || 0);
++        let resigning = false;
++
++        async function resign() {
++            if (resigning) return;
++            resigning = true;
++            try {
++                const data = await freshMediaUrl();
++                if (data) {
++                    expiresAt = Number(data.expires_at || 0);
++                    swapSource(data.url);
++                }
++            } catch (err) {
++                Hub.toast && Hub.toast("Couldn't refresh the media link", "error");
++            } finally {
++                resigning = false;
++            }
++        }
++
++        // The edge rejected us — almost always an expired signature.
++        video.addEventListener("error", () => {
++            const code = video.error && video.error.code;
++            if (code === 2 || code === 4) resign();
++        });
++
++        // Left paused past the TTL: re-sign before the next play attempt.
++        video.addEventListener("play", () => {
++            if (expiresAt && Date.now() / 1000 > expiresAt - 60) resign();
++        });
++    }
++
+     /* ------------------------------------------------------------- reload */
+     function initReload() {
+         const button = $("[data-reload-stream]");
+@@ -344,6 +407,7 @@
+     }
+ 
+     initQuality();
++    initCdnDirect();
+     initReload();
+     initAutoplay();
+     initShortcuts();

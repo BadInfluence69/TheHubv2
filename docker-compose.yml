@@ -1,0 +1,41 @@
+# The Hub — docker compose
+#
+#   docker compose up -d
+#
+# Before first run:
+#   1. cp .env.example .env  and set SECRET_KEY
+#   2. Edit the media mounts below to point at your own folders
+
+services:
+  hub:
+    build: .
+    container_name: thehub
+    restart: unless-stopped
+
+    ports:
+      - "5002:5002"
+
+    env_file:
+      - .env
+
+    environment:
+      # Paths as the container sees them, not as the host does.
+      MEDIA_LIBRARY: '{"Movies": "/media/movies", "TV": "/media/tv"}'
+
+    volumes:
+      # Database, uploads, and thumbnail cache. Keep this one.
+      - hub-data:/data
+
+      # Your media, mounted read-only — the app never needs to write here.
+      # Change the left side of each line to your own paths.
+      - /path/to/your/Movies:/media/movies:ro
+      - /path/to/your/TV:/media/tv:ro
+
+      # OAuth credentials, if you're using the JSON file rather than .env vars.
+      # - ./client_secret.json:/app/client_secret.json:ro
+
+      # Browser cookies, if you need age-restricted videos to resolve.
+      # - ./cookies.txt:/app/cookies.txt:ro
+
+volumes:
+  hub-data:
