@@ -1,0 +1,29 @@
+<script>
+    const video = document.getElementById('videoPlayer');
+    
+    // 1. MAKE SURE THIS MATCHES YOUR CURRENT FFMPEG INDEX (0 or 1)
+    const streamSource = 'hls_output/stream0.m3u8'; 
+
+    if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(streamSource);
+        hls.attachMedia(video);
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+            console.log("Stream manifest found and parsed successfully!");
+            video.play();
+        });
+
+        // Error logging to catch path issues
+        hls.on(Hls.Events.ERROR, function (event, data) {
+            if (data.fatal) {
+                console.warn("HLS Player error encountered:", data.type, "Details:", data.details);
+                if (data.details === 'manifestLoadError') {
+                    console.error("CRITICAL: The player cannot find the file at: " + streamSource);
+                }
+            }
+        });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = streamSource;
+    }
+</script>

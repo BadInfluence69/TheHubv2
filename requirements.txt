@@ -1,0 +1,24 @@
+# --- core -------------------------------------------------------------------
+Flask>=3.0,<4.0
+Werkzeug>=3.0,<4.0
+Jinja2>=3.1
+python-dotenv>=1.0
+requests>=2.31
+
+# --- streaming --------------------------------------------------------------
+# yt-dlp changes fast because YouTube does. Keep it updated:
+#   pip install -U yt-dlp
+yt-dlp>=2024.1.1
+
+# --- YouTube upload (OAuth) -------------------------------------------------
+google-api-python-client>=2.100
+google-auth>=2.23
+google-auth-oauthlib>=1.1
+google-auth-httplib2>=0.1.1
+
+# --- token encryption -------------------------------------------------------
+cryptography>=41.0
+
+# --- production servers (install the one for your platform) -----------------
+gunicorn>=21.2 ; sys_platform != "win32"
+waitress>=2.1  ; sys_platform == "win32"
