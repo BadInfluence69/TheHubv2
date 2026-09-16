@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}About · The Hub{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+
+{% block content %}
+<h1 class="page-title">About The Hub</h1>
+<p class="page-sub">A private front end for video, running on hardware you own.</p>
+
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="section-title">Where your data lives</h2>
+    <span class="badge badge-go">{{ icons.shield() }} Local first</span>
+  </div>
+
+  <p>Every social feature in this app writes to one SQLite file on this machine:
+     <span class="mono">hub.db</span>. That includes:</p>
+
+  <ul style="line-height:2; color:var(--muted)">
+    <li>Comments and replies, with their own likes and dislikes</li>
+    <li>Likes and dislikes on videos</li>
+    <li>Subscriptions</li>
+    <li>Playlists, Watch later, and Liked videos</li>
+    <li>Watch history, resume positions, and search history</li>
+  </ul>
+
+  <p>None of it is sent to Google. Commenting here does not put a comment on
+     YouTube; liking here does not like it on your account; subscribing here
+     does not follow the channel on YouTube. That separation is deliberate — the
+     point is a space that's yours, sitting alongside the real thing rather than
+     writing into it.</p>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h2 class="section-title">What does leave this machine</h2></div>
+
+  <p>Three things, and only three:</p>
+
+  <div style="display:grid; gap:14px; margin-top:16px">
+    <div style="display:flex; gap:13px">
+      <span style="color:var(--amber)">{{ icons.search() }}</span>
+      <div>
+        <strong>Search queries</strong>
+        <div class="small muted">Sent to YouTube and Tubi when you search, the
+        same as typing into their own search boxes.</div>
+      </div>
+    </div>
+    <div style="display:flex; gap:13px">
+      <span style="color:var(--amber)">{{ icons.film() }}</span>
+      <div>
+        <strong>Stream requests</strong>
+        <div class="small muted">yt-dlp fetches the video itself from the source
+        so it can play here.</div>
+      </div>
+    </div>
+    <div style="display:flex; gap:13px">
+      <span style="color:var(--signal)">{{ icons.upload() }}</span>
+      <div>
+        <strong>Videos you publish from Studio</strong>
+        <div class="small muted">Only when you explicitly upload one, and only
+        to the Google account you connected yourself.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h2 class="section-title">How it fits together</h2></div>
+
+  <table class="table">
+    <tbody>
+      <tr><td class="mono">Flask</td><td class="muted">Web server and routing</td></tr>
+      <tr><td class="mono">SQLite</td><td class="muted">Everything local — accounts, social data, catalogue</td></tr>
+      <tr><td class="mono">yt-dlp</td><td class="muted">Resolves a video ID into a playable stream</td></tr>
+      <tr><td class="mono">ffmpeg</td><td class="muted">Thumbnails, and converting files browsers won't play</td></tr>
+      <tr><td class="mono">YouTube Data API</td><td class="muted">Search metadata, and uploading from Studio</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h2 class="section-title">Keyboard shortcuts</h2></div>
+  <table class="table">
+    <tbody>
+      <tr><td class="mono">/</td><td class="muted">Jump to search</td></tr>
+      <tr><td class="mono">space · k</td><td class="muted">Play or pause</td></tr>
+      <tr><td class="mono">j · l</td><td class="muted">Back or forward 10 seconds</td></tr>
+      <tr><td class="mono">← · →</td><td class="muted">Back or forward 5 seconds</td></tr>
+      <tr><td class="mono">0–9</td><td class="muted">Jump to that point in the video</td></tr>
+      <tr><td class="mono">m</td><td class="muted">Mute</td></tr>
+      <tr><td class="mono">f</td><td class="muted">Fullscreen</td></tr>
+      <tr><td class="mono">c</td><td class="muted">Captions</td></tr>
+      <tr><td class="mono">&lt; · &gt;</td><td class="muted">Slower or faster</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p class="small faint" style="text-align:center; margin-top:32px">
+  The Hub v{{ app_version }} — for personal use with content you have the right to access.
+</p>
+{% endblock %}

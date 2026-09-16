@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}#{{ room.name }} · Rooms{% endblock %}
+
+{% block content %}
+<div class="dm-layout">
+  <section class="dm-thread-wrap">
+
+    <div class="dm-header">
+      <a class="icon-btn" href="{{ url_for('chat.index') }}" aria-label="All rooms">
+        {{ icons.chat() }}
+      </a>
+      <div style="min-width:0">
+        <div class="dm-row-name"><span class="rail-hash">#</span> {{ room.name }}</div>
+        <div class="small faint truncate">{{ room.topic or 'No topic set.' }}</div>
+      </div>
+      {% if room.is_locked %}
+        <span class="badge badge-amber" style="margin-left:auto">Read-only</span>
+      {% endif %}
+      {% if can_manage %}
+        <button type="button" class="btn btn-quiet btn-sm"
+                style="{{ '' if room.is_locked else 'margin-left:auto' }}"
+                data-room-settings>{{ icons.settings() }}</button>
+      {% endif %}
+    </div>
+
+    <div class="notice notice-amber" style="padding:10px 14px">
+      <span class="small">
+        {{ icons.users() }} Everyone with an account here can read this room.
+        Not encrypted — that's what <a href="{{ url_for('messages.inbox') }}"
+        style="color:var(--info)">direct messages</a> are for.
+      </span>
+    </div>
+
+    <div class="chat-log" data-chat-log data-room="{{ room.id }}" data-me="{{ current_user.id }}">
+      {% for post in posts %}
+        <div class="chat-post" id="post-{{ post.id }}" data-post="{{ post.id }}">
+          <span class="avatar avatar-sm"
+                style="background: hsl({{ post.avatar_hue or (post.username|hue) }} 62% 44%)">
+            {{ (post.display_name or post.username)|avatar_letter }}
+          </span>
+          <div class="chat-post-main">
+            <div class="chat-post-head">
+              <span class="comment-author">{{ post.display_name or post.username }}</span>
+              <time class="comment-time" datetime="{{ post.created_at }}">
+                {{ post.created_at|time_ago }}
+              </time>
+              {% if post.user_id == current_user.id or current_user.is_admin %}
+                {% if not post.is_deleted %}
+                  <button type="button" class="chat-delete" data-delete-post="{{ post.id }}">
+                    Delete
+                  </button>
+                {% endif %}
+              {% endif %}
+              {% if post.user_id != current_user.id %}
+                <a class="chat-dm" href="{{ url_for('messages.open_thread', username=post.username) }}"
+                   title="Message privately">{{ icons.message() }}</a>
+              {% endif %}
+            </div>
+            <div class="chat-post-body">
+              {% if post.is_deleted %}
+                <span class="faint">Deleted</span>
+              {% else %}
+                {{ post.body|linkify }}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <div class="empty" data-chat-empty>
+          <div class="empty-icon">{{ icons.chat() }}</div>
+          <h3>Nothing here yet</h3>
+          <p>Say the first thing.</p>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if room.is_locked and not current_user.is_admin %}
+      <p class="muted small">This room is read-only.</p>
+    {% else %}
+      <form class="dm-compose" data-chat-form data-room="{{ room.id }}">
+        <textarea class="comment-input" data-chat-input rows="1"
+                  maxlength="2000"
+                  placeholder="Message #{{ room.name }} — use @username to ping someone"></textarea>
+        <button type="submit" class="btn btn-primary">{{ icons.send() }} Send</button>
+      </form>
+    {% endif %}
+  </section>
+
+  {# ---------------------------------------------------------------- aside #}
+  <aside>
+    <div class="panel panel-tight">
+      <div class="panel-head" style="padding:0 8px 8px">
+        <h2 class="section-title">Rooms</h2>
+      </div>
+      {% for item in rooms %}
+        <a class="dm-row {{ 'is-active' if item.id == room.id }}"
+           href="{{ url_for('chat.room', slug=item.slug) }}">
+          <span class="rail-hash">#</span>
+          <span class="truncate">{{ item.name }}</span>
+          {% if item.unread %}<span class="badge badge-signal">{{ item.unread }}</span>{% endif %}
+        </a>
+      {% endfor %}
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="section-title">Recently active</h2></div>
+      {% for member in members %}
+        <div class="list-row">
+          <span class="avatar avatar-sm"
+                style="background: hsl({{ member.avatar_hue }} 62% 45%)">
+            {{ (member.display_name or member.username)|avatar_letter }}
+          </span>
+          <span class="truncate">{{ member.display_name or member.username }}</span>
+          {% if member.id != current_user.id %}
+            <a class="btn btn-quiet btn-sm" style="margin-left:auto"
+               href="{{ url_for('messages.open_thread', username=member.username) }}"
+               title="Message privately">{{ icons.message() }}</a>
+          {% endif %}
+        </div>
+      {% else %}
+        <p class="small faint">Nobody has posted here yet.</p>
+      {% endfor %}
+    </div>
+  </aside>
+</div>
+
+{% if can_manage %}
+<div class="modal-backdrop" data-room-modal hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2 class="section-title">Room settings</h2>
+      <button type="button" class="icon-btn" data-close-modal aria-label="Close">
+        {{ icons.close() }}
+      </button>
+    </div>
+    <form method="post" action="{{ url_for('chat.update', slug=room.slug) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-body">
+        <div class="field">
+          <label class="label" for="edit-name">Name</label>
+          <input type="text" id="edit-name" name="name" value="{{ room.name }}" maxlength="60">
+        </div>
+        <div class="field">
+          <label class="label" for="edit-topic">Topic</label>
+          <input type="text" id="edit-topic" name="topic" value="{{ room.topic }}" maxlength="200">
+        </div>
+        {% if current_user.is_admin %}
+          <label class="check">
+            <input type="checkbox" name="is_locked" {% if room.is_locked %}checked{% endif %}>
+            <span class="check-text">Read-only — only admins can post</span>
+          </label>
+        {% endif %}
+      </div>
+      <div class="modal-foot">
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+    {% if not room.is_system %}
+      <form method="post" action="{{ url_for('chat.delete', slug=room.slug) }}"
+            onsubmit="return confirm('Delete this room and everything in it?')"
+            style="padding:0 20px 20px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger btn-sm">{{ icons.trash() }} Delete room</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chat.js') }}" defer></script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% import "partials/video_card.html" as cards %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Home · The Hub{% endblock %}
+
+{% block content %}
+<div class="privacy-banner">
+  {{ icons.shield() }}
+  <span>Likes, comments, and subscriptions you make here are recorded in
+  <span class="mono">hub.db</span> on this machine. Nothing is sent to your
+  YouTube account.</span>
+</div>
+
+{% if continue_watching %}
+<section class="shelf">
+  <div class="shelf-head">
+    <h2 class="section-title">Pick back up</h2>
+    <a href="{{ url_for('library.history') }}" class="btn btn-quiet btn-sm">All history</a>
+  </div>
+  <div class="shelf-scroll">
+    {% for video in continue_watching %}
+      {{ cards.card(video, progress=percent(video.position_seconds, video.duration_seconds or video.duration)) }}
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section>
+  <div class="shelf-head">
+    <div>
+      <h2 class="section-title">For you</h2>
+      <p class="small faint" style="margin:2px 0 0">
+        {% if subscription_count %}
+          Mixed from {{ subscription_count }} channel{{ '' if subscription_count == 1 else 's' }}
+          you follow and what you've been watching.
+        {% else %}
+          Follow a few channels and this feed starts shaping itself around them.
+        {% endif %}
+      </p>
+    </div>
+    <a href="{{ url_for('main.explore') }}" class="btn btn-ghost btn-sm">Explore</a>
+  </div>
+
+  {{ cards.grid(
+       videos,
+       empty_title='Your feed is empty',
+       empty_body='Search for something you like. Anything you watch gets catalogued locally and the feed builds itself from there.'
+     ) }}
+</section>
+
+{{ cards.playlist_modal(nav_playlists) }}
+{% endblock %}

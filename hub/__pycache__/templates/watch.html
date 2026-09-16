@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% import "partials/video_card.html" as cards %}
+{% import "partials/icons.html" as icons %}
+{% import "partials/creator_support.html" as support %}
+
+{% block title %}{{ video.title }} · The Hub{% endblock %}
+
+{% block page_class %}{% endblock %}
+
+{% block content %}
+<div class="watch-layout" data-player='{{ {
+      "videoId": video_id,
+      "resumeAt": resume_at,
+      "autoplay": autoplay
+    }|tojson }}'>
+
+  {# ================================================================ player #}
+  <div>
+    <div class="player-shell">
+      {% if stream and stream.url %}
+        <video id="player" controls playsinline preload="metadata"
+               poster="{{ video|thumb }}"
+               {% if autoplay %}autoplay{% endif %}>
+          <source src="{{ stream.url }}" type="video/mp4">
+          {% for track in stream.subtitles or [] %}
+            <track kind="subtitles" src="{{ track.url }}"
+                   srclang="{{ track.lang[:5] }}" label="{{ track.label }}"
+                   {% if loop.first and not track.auto %}default{% endif %}>
+          {% endfor %}
+          Your browser can't play this file.
+        </video>
+      {% else %}
+        <div class="player-fallback">
+          <div>
+            <div class="eyebrow">Stream unavailable</div>
+            <p>
+              This server couldn't get a playable link for this video. That's
+              usually a yt-dlp version behind YouTube's latest change, or a
+              video that needs sign-in.
+            </p>
+            {% if stream_error %}<code>{{ stream_error }}</code>{% endif %}
+            <div class="btn-group" style="justify-content:center">
+              <button type="button" class="btn btn-primary" data-reload-stream>
+                {{ icons.refresh() }} Try again
+              </button>
+              {% if video.source == 'youtube' %}
+                <a class="btn btn-ghost" target="_blank" rel="noopener"
+                   href="https://www.youtube.com/watch?v={{ video_id }}">
+                  {{ icons.external() }} Open on YouTube
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    {# ---------------------------------------------------------- heading #}
+    <div class="video-heading">
+      <h1>{{ video.title }}</h1>
+    </div>
+
+    <div class="watch-actions">
+      <div class="channel-block">
+        <a href="{{ url_for('channels.channel', channel_name=video.channel_name or 'Unknown') }}"
+           class="avatar"
+           style="background: hsl({{ (video.channel_name or '?')|hue }} 62% 42%)">
+          {{ (video.channel_name or '?')|avatar_letter }}
+        </a>
+        <div style="min-width:0">
+          <a href="{{ url_for('channels.channel', channel_name=video.channel_name or 'Unknown') }}"
+             class="channel-name truncate">{{ video.channel_name or 'Unknown channel' }}</a>
+          <div class="small faint mono">
+            <span data-subscriber-count="{{ video.channel_name }}">{{ subscriber_count }}</span>
+            fan{{ '' if subscriber_count == 1 else 's' }}
+          </div>
+        </div>
+
+        {% if video.channel_name %}
+          <button type="button"
+                  class="btn {{ 'btn-ghost' if subscribed else 'btn-primary' }}"
+                  data-subscribe="{{ video.channel_name }}"
+                  style="margin-left:8px">
+            <span data-subscribe-label>{{ 'Fan' if subscribed else 'Become a fan' }}</span>
+          </button>
+        {% endif %}
+      </div>
+
+      <div class="btn-group" data-vote-group="{{ video_id }}">
+        <div class="vote-pill">
+          <button type="button" data-vote="1"
+                  class="{{ 'is-on' if my_vote == 1 }}"
+                  aria-pressed="{{ 'true' if my_vote == 1 else 'false' }}">
+            {{ icons.thumb_up() }}
+            <span class="count" data-like-count>{{ video.likes|compact }}</span>
+          </button>
+          <button type="button" data-vote="-1"
+                  class="{{ 'is-on' if my_vote == -1 }}"
+                  aria-pressed="{{ 'true' if my_vote == -1 else 'false' }}">
+            {{ icons.thumb_down() }}
+            <span class="count" data-dislike-count>{{ video.dislikes|compact }}</span>
+          </button>
+        </div>
+
+        <button type="button" class="btn" data-share="{{ url_for('watch.watch', video_id=video_id) }}">
+          {{ icons.share() }} Share
+        </button>
+
+        <button type="button" class="btn" data-add-to-playlist="{{ video_id }}">
+          {{ icons.save() }} Save
+        </button>
+
+        {% if video.source == 'local' %}
+          <a class="btn" href="{{ url_for('media.download_local', video_id=video_id) }}">
+            {{ icons.download() }} Download
+          </a>
+        {% endif %}
+
+        {% if stream and stream.qualities and stream.qualities|length > 1 %}
+          <select data-quality class="btn" style="padding-inline:14px; max-width:120px"
+                  aria-label="Playback quality">
+            {% for quality in stream.qualities %}
+              <option value="{{ quality.url }}">{{ quality.label }}</option>
+            {% endfor %}
+          </select>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ------------------------------------------------------ description #}
+    <div class="description">
+      <div class="description-meta">
+        <span>{{ video.view_count|compact }} view{{ '' if video.view_count == 1 else 's' }} here</span>
+        {% if video.duration %}<span>{{ video.duration|duration }}</span>{% endif %}
+        {% if video.published_at %}<span>Published {{ video.published_at|time_ago }}</span>{% endif %}
+        <span class="faint">{{ video_id }}</span>
+        {% if stream and stream.client %}
+          <span class="faint">via {{ stream.client }}</span>
+        {% endif %}
+      </div>
+
+      <div class="description-body">{{ video.description|linkify }}</div>
+
+      {% if video.description and video.description|length > 220 %}
+        <button type="button" class="btn btn-quiet btn-sm" style="margin-top:8px"
+                data-description-toggle>Show more</button>
+      {% endif %}
+
+      {% if stream and stream.chapters %}
+        <hr class="hairline" style="margin:16px 0">
+        <div class="eyebrow" style="margin-bottom:8px">Chapters</div>
+        <div style="display:grid; gap:4px">
+          {% for chapter in stream.chapters %}
+            <button type="button" class="seek-link" data-seek="{{ chapter.start_time|int }}"
+                    style="text-align:left; display:flex; gap:12px">
+              <span class="mono">{{ chapter.start_time|duration }}</span>
+              <span style="color:var(--text)">{{ chapter.title }}</span>
+            </button>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    {# Support block for the creator, if they've published one. Sits directly
+       under the description so it's in reach while the video is still on
+       screen, rather than below a long comment thread. #}
+    {{ support.panel(creator, compact=true) }}
+
+    {# --------------------------------------------------------- comments #}
+    <section class="comments" id="comments" data-comments="{{ video_id }}">
+      <div class="comments-head">
+        <h2 class="section-title">
+          <span data-comment-count>{{ comment_count|compact }}</span>
+          comment{{ '' if comment_count == 1 else 's' }}
+        </h2>
+
+        <div class="chips">
+          {% for value, label in [('top','Top'), ('newest','Newest'), ('oldest','Oldest')] %}
+            <a class="chip {{ 'active' if comment_sort == value }}"
+               href="{{ url_for('watch.watch', video_id=video_id, sort=value) }}#comments">{{ label }}</a>
+          {% endfor %}
+          {% if response_count %}
+            <a class="chip {{ 'active' if comment_sort == 'responses' }}"
+               href="{{ url_for('watch.watch', video_id=video_id, sort='responses') }}#comments">
+              {{ icons.video_response() }} Responses
+              <span class="chip-count mono">{{ response_count }}</span>
+            </a>
+          {% endif %}
+        </div>
+
+        <span class="badge badge-go" style="margin-left:auto">{{ icons.shield() }} Local only</span>
+      </div>
+
+      {% if responding_to %}
+        {# This page is itself a video response. Say what it's answering. #}
+        <a class="notice responding-to" href="{{ responding_to.video_id|watch_url }}">
+          <span class="badge badge-info">{{ icons.video_response() }} Responding to</span>
+          <strong>{{ responding_to.title or responding_to.video_id }}</strong>
+          <span class="small muted">
+            posted by {{ responding_to.username }} · {{ responding_to.created_at|time_ago }}
+          </span>
+        </a>
+      {% endif %}
+
+      {% if video_responses %}
+        <div class="response-shelf">
+          <div class="shelf-head">
+            <h3 class="section-title">
+              {{ icons.video_response() }}
+              {{ response_count }} video response{{ '' if response_count == 1 else 's' }}
+            </h3>
+          </div>
+          <div class="shelf-scroll">
+            {% for item in video_responses %}
+              <a class="response-tile" href="{{ item.response_video_id|watch_url }}">
+                <span class="response-thumb">
+                  <img src="{{ {'video_id': item.response_video_id,
+                                'thumbnail': item.response_thumbnail}|thumb }}"
+                       alt="" loading="lazy">
+                  <span class="response-play">{{ icons.play() }}</span>
+                  {% if item.response_duration %}
+                    <span class="card-duration mono">{{ item.response_duration|duration }}</span>
+                  {% endif %}
+                </span>
+                <span class="response-tile-title truncate">
+                  {{ item.response_title or 'Untitled response' }}
+                </span>
+                <span class="small faint">{{ item.display_name or item.username }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <form class="comment-compose" data-comment-form
+            action="{{ url_for('watch.add_comment_form', video_id=video_id) }}"
+            method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <span class="avatar"
+              style="background: hsl({{ current_user.avatar_hue }} 62% 45%)">
+          {{ current_user.display_name|avatar_letter }}
+        </span>
+        <div class="grow">
+          <textarea class="comment-input" name="body" rows="1"
+                    placeholder="Add a comment — it stays on this server"
+                    maxlength="8000"></textarea>
+
+          {# ------------------------------------------- video response box #}
+          <div class="response-attach" data-response-attach hidden>
+            <div class="response-attach-head">
+              <span class="badge badge-info">{{ icons.video_response() }} Video response</span>
+              <button type="button" class="comment-action" data-response-cancel>Remove</button>
+            </div>
+
+            <div class="field-row">
+              <input type="file" name="response_file" accept="video/*"
+                     data-response-file>
+            </div>
+            <div class="field-hint">
+              Upload a clip, or paste a link to something already here:
+            </div>
+            <div class="field-row">
+              <input type="text" name="response_ref" data-response-ref
+                     placeholder="Paste a Hub or YouTube link, or a video id"
+                     autocomplete="off">
+            </div>
+            <input type="text" name="response_title" maxlength="200"
+                   placeholder="Title for your response (optional)">
+          </div>
+
+          <div class="compose-actions" hidden>
+            <button type="button" class="comment-action" data-response-toggle>
+              {{ icons.video_response() }} Respond with a video
+            </button>
+            <button type="button" class="btn btn-quiet btn-sm" data-cancel-comment>Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm">Comment</button>
+          </div>
+        </div>
+      </form>
+
+      <div data-comment-list>
+        {% for comment in comments %}
+          {% with is_reply = false %}
+            {% include "partials/comment.html" %}
+          {% endwith %}
+        {% else %}
+          <p class="muted small" data-comments-empty>
+            No comments yet. Yours would be the first.
+          </p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  {# ============================================================== up next #}
+  <aside>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px">
+      <h2 class="section-title">Up next</h2>
+      <label class="small muted" style="display:flex; align-items:center; gap:7px; cursor:pointer">
+        <input type="checkbox" data-autoplay-toggle {% if autoplay %}checked{% endif %}
+               style="width:auto; accent-color:var(--signal)">
+        Autoplay
+      </label>
+    </div>
+
+    {% for video in up_next %}
+      {{ cards.card(video, variant='rail') }}
+    {% else %}
+      <p class="muted small">Nothing queued up. Search for something to fill this out.</p>
+    {% endfor %}
+  </aside>
+</div>
+
+{{ cards.playlist_modal(playlists) }}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/player.js') }}" defer></script>
+{% endblock %}

@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}My channel · Studio{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; align-items:flex-start">
+  <div>
+    <h1 class="page-title">My channel</h1>
+    <p class="page-sub">
+      Videos on <strong>{{ connection.channel_title or 'your channel' }}</strong>.
+      Edits here go to YouTube for real.
+    </p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('studio.upload') }}">
+    {{ icons.upload() }} New upload
+  </a>
+</div>
+
+<div class="notice notice-amber">
+  <strong>This page is live YouTube data</strong>
+  Unlike the rest of The Hub, changes made here are sent to Google straight away.
+  Deleting a video here deletes it from YouTube.
+</div>
+
+{% if videos %}
+  <div style="display:grid; gap:16px">
+    {% for video in videos %}
+    <div class="panel">
+      <div style="display:grid; grid-template-columns:200px 1fr; gap:18px; align-items:start">
+        <a href="https://www.youtube.com/watch?v={{ video.id }}" target="_blank"
+           rel="noopener" class="card-thumb" style="aspect-ratio:16/9">
+          <img src="{{ video.thumbnail }}" alt="" loading="lazy">
+        </a>
+
+        <div style="min-width:0">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px">
+            <span class="badge {{ 'badge-go' if video.privacy == 'public'
+                                  else ('badge-amber' if video.privacy == 'unlisted' else '') }}">
+              {{ video.privacy }}
+            </span>
+            <span class="mono faint small">{{ video.id }}</span>
+            <span class="mono faint small">{{ video.published_at|time_ago }}</span>
+          </div>
+
+          <div class="card-meta" style="margin-bottom:12px">
+            <span>{{ video.views|compact }} views</span><span class="dot">·</span>
+            <span>{{ video.likes|compact }} likes</span><span class="dot">·</span>
+            <span>{{ video.comments|compact }} comments</span>
+            <span class="faint" style="margin-left:6px">on YouTube</span>
+          </div>
+
+          <details>
+            <summary style="cursor:pointer; font-weight:600; margin-bottom:12px">
+              {{ video.title }}
+            </summary>
+
+            <form method="post" style="margin-top:14px"
+                  action="{{ url_for('studio.update_video', video_id=video.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+              <div class="field">
+                <label for="t-{{ video.id }}">Title</label>
+                <input id="t-{{ video.id }}" type="text" name="title"
+                       value="{{ video.title }}" maxlength="100">
+              </div>
+
+              <div class="field">
+                <label for="d-{{ video.id }}">Description</label>
+                <textarea id="d-{{ video.id }}" name="description" rows="5"
+                          maxlength="5000">{{ video.description }}</textarea>
+              </div>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="g-{{ video.id }}">Tags</label>
+                  <input id="g-{{ video.id }}" type="text" name="tags"
+                         value="{{ video.tags|join(', ') }}">
+                </div>
+                <div class="field">
+                  <label for="p-{{ video.id }}">Who can watch</label>
+                  <select id="p-{{ video.id }}" name="privacy">
+                    {% for value in ['private','unlisted','public'] %}
+                      <option value="{{ value }}" {{ 'selected' if video.privacy == value }}>{{ value }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="c-{{ video.id }}">Category</label>
+                <select id="c-{{ video.id }}" name="category_id">
+                  {% for value, label in categories %}
+                    <option value="{{ value }}" {{ 'selected' if video.category_id == value }}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Save to YouTube</button>
+                <a class="btn btn-ghost" target="_blank" rel="noopener"
+                   href="https://studio.youtube.com/video/{{ video.id }}/edit">
+                  {{ icons.external() }} Full YouTube Studio
+                </a>
+              </div>
+            </form>
+
+            <hr class="hairline">
+
+            <form method="post" action="{{ url_for('studio.delete_video', video_id=video.id) }}"
+                  data-confirm="Delete “{{ video.title }}” from YouTube permanently? This cannot be undone.">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-danger btn-sm">
+                {{ icons.trash() }} Delete from YouTube
+              </button>
+            </form>
+          </details>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+{% elif connection.connected %}
+  <div class="empty">
+    <div class="empty-icon">{{ icons.youtube() }}</div>
+    <h3>Nothing on this channel yet</h3>
+    <p>Once you publish something it shows up here with its live view and
+       comment counts.</p>
+    <a href="{{ url_for('studio.upload') }}" class="btn btn-primary">Upload a video</a>
+  </div>
+
+{% else %}
+  <div class="empty">
+    <div class="empty-icon">{{ icons.google() }}</div>
+    <h3>Not connected</h3>
+    <p>Connect a Google account in Studio to manage your channel from here.</p>
+    <a href="{{ url_for('studio.dashboard') }}" class="btn btn-primary">Go to Studio</a>
+  </div>
+{% endif %}
+{% endblock %}

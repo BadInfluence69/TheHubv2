@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}{{ other.display_name or other.username }} · Messages{% endblock %}
+
+{% block content %}
+<div class="dm-layout">
+  <section class="dm-thread-wrap">
+
+    {# ------------------------------------------------------------ header #}
+    <div class="dm-header">
+      <a class="icon-btn" href="{{ url_for('messages.inbox') }}" aria-label="Back to messages">
+        {{ icons.menu() }}
+      </a>
+      <span class="avatar" style="background: hsl({{ other.avatar_hue }} 62% 45%)">
+        {{ (other.display_name or other.username)|avatar_letter }}
+      </span>
+      <div style="min-width:0">
+        <div class="dm-row-name">{{ other.display_name or other.username }}</div>
+        <div class="small faint mono">
+          {{ icons.lock() }} end-to-end encrypted
+        </div>
+      </div>
+
+      <div class="btn-group" style="margin-left:auto">
+        <a class="btn btn-quiet btn-sm" href="{{ url_for('messages.key_setup') }}"
+           title="Your encryption settings">{{ icons.key() }}</a>
+        <button type="button" class="btn btn-quiet btn-sm"
+                data-block-user="{{ other.id }}">
+          {{ icons.block_user() }} {{ 'Unblock' if is_blocked else 'Block' }}
+        </button>
+        <form method="post" action="{{ url_for('messages.delete_thread', conversation_id=conversation_id) }}"
+              onsubmit="return confirm('Delete this conversation for both of you? This cannot be undone.')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-quiet btn-sm">{{ icons.trash() }}</button>
+        </form>
+      </div>
+    </div>
+
+    {# ------------------------------------------------------- blockers etc #}
+    {% if not my_keys %}
+      <div class="notice notice-amber">
+        <strong>{{ icons.key() }} You haven't set up encryption yet.</strong>
+        <a href="{{ url_for('messages.key_setup') }}" style="color:var(--info)">Set a
+        passphrase</a> to send and read messages.
+      </div>
+    {% elif not other_public_key %}
+      <div class="notice notice-amber">
+        <strong>{{ other.display_name or other.username }} hasn't set up encryption yet.</strong>
+        There's no key to encrypt to, so nothing can be sent. They'll need to
+        visit their message settings once — after that this thread just works.
+      </div>
+    {% endif %}
+
+    {% if is_blocked %}
+      <div class="notice notice-signal">
+        You've blocked this account. They can't reach you, and you won't see
+        their room posts. Unblock to start the conversation again.
+      </div>
+    {% endif %}
+
+    <div class="notice" data-locked-notice hidden>
+      <strong>{{ icons.lock() }} Locked on this device.</strong>
+      Your key is stored encrypted. Enter your passphrase to read this thread.
+      <div class="field-row" style="margin-top:10px">
+        <input type="password" data-inline-passphrase placeholder="Message passphrase"
+               autocomplete="off">
+        <button type="button" class="btn btn-primary" data-inline-unlock>Unlock</button>
+      </div>
+      <p class="small mono faint" data-key-status style="margin-top:8px"></p>
+    </div>
+
+    {# ---------------------------------------------------------- messages #}
+    <div class="dm-messages" data-messages
+         data-conversation="{{ conversation_id }}"
+         data-their-key="{{ other_public_key or '' }}"
+         data-me="{{ current_user.id }}">
+      {% for message in messages %}
+        <div class="dm-bubble {{ 'mine' if message.sender_id == current_user.id else 'theirs' }}"
+             data-message="{{ message.id }}"
+             data-ciphertext="{{ message.ciphertext }}"
+             data-iv="{{ message.iv }}"
+             data-deleted="{{ '1' if message.is_deleted else '0' }}">
+          <div class="dm-bubble-body" data-body>
+            {% if message.is_deleted %}
+              <span class="faint">Unsent</span>
+            {% else %}
+              <span class="mono faint">{{ icons.lock() }} decrypting…</span>
+            {% endif %}
+          </div>
+          <div class="dm-bubble-meta">
+            <time datetime="{{ message.created_at }}">{{ message.created_at|time_ago }}</time>
+            {% if message.sender_id == current_user.id %}
+              {% if message.read_at %}<span class="dm-read">Read</span>{% endif %}
+              {% if not message.is_deleted %}
+                <button type="button" class="dm-unsend" data-unsend="{{ message.id }}">Unsend</button>
+              {% endif %}
+            {% endif %}
+          </div>
+        </div>
+      {% else %}
+        <div class="empty" data-thread-empty>
+          <div class="empty-icon">{{ icons.lock() }}</div>
+          <h3>No messages yet</h3>
+          <p>Whatever you send here, the server stores as ciphertext it can't open.</p>
+        </div>
+      {% endfor %}
+    </div>
+
+    {# ----------------------------------------------------------- compose #}
+    <form class="dm-compose" data-dm-form
+          {% if not my_keys or not other_public_key or they_blocked_me %}data-disabled="1"{% endif %}>
+      <textarea class="comment-input" data-dm-input rows="1" maxlength="8000"
+                placeholder="Message {{ other.display_name or other.username }} — encrypted before it sends"></textarea>
+      <button type="submit" class="btn btn-primary" data-dm-send>
+        {{ icons.send() }} Send
+      </button>
+    </form>
+    <p class="small faint" style="margin-top:8px">
+      Encrypted in this browser. The server sees ciphertext, and knows that you
+      two exchanged a message — nothing more.
+    </p>
+  </section>
+
+  {# --------------------------------------------------------- other threads #}
+  <aside>
+    <div class="panel panel-tight">
+      <div class="panel-head" style="padding:0 8px 8px">
+        <h2 class="section-title">Conversations</h2>
+      </div>
+      {% for item in conversations %}
+        <a class="dm-row {{ 'is-active' if item.id == conversation_id }}"
+           href="{{ url_for('messages.thread', conversation_id=item.id) }}">
+          <span class="avatar avatar-sm"
+                style="background: hsl({{ item.other_avatar_hue }} 62% 45%)">
+            {{ (item.other_display_name or item.other_username)|avatar_letter }}
+          </span>
+          <span class="truncate">{{ item.other_display_name or item.other_username }}</span>
+          {% if item.unread %}<span class="badge badge-signal">{{ item.unread }}</span>{% endif %}
+        </a>
+      {% endfor %}
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="section-title">Verify</h2></div>
+      <p class="small muted">Their key fingerprint:</p>
+      <div class="stat-value mono" style="font-size:12px" data-their-fingerprint>
+        {% if other_public_key %}calculating…{% else %}no key yet{% endif %}
+      </div>
+      <p class="small faint" style="margin-top:10px">
+        Check this against what they read out to you somewhere other than here.
+        Matching fingerprints mean nothing has been swapped in between you.
+      </p>
+    </div>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/e2ee.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/messages.js') }}" defer></script>
+<script>
+  window.HubUser = { id: {{ current_user.id }}, hasKeys: {{ 'true' if my_keys else 'false' }} };
+</script>
+{% endblock %}

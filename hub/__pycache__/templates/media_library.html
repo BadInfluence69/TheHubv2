@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% import "partials/video_card.html" as cards %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Local files · The Hub{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; align-items:flex-start">
+  <div>
+    <h1 class="page-title">Local files</h1>
+    <p class="page-sub">Video files on this machine's drives, streamed straight
+       from disk. Formats browsers won't play get converted on the fly.</p>
+  </div>
+  <form method="post" action="{{ url_for('media.rescan') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-ghost">{{ icons.refresh() }} Rescan drives</button>
+  </form>
+</div>
+
+{% if configured %}
+<div class="stat-row" style="margin-bottom:32px">
+  <div class="stat">
+    <div class="stat-value">{{ stats.count }}</div>
+    <div class="stat-label">Files indexed</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ stats.bytes|file_size }}</div>
+    <div class="stat-label">On disk</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ stats.shelves }}</div>
+    <div class="stat-label">Folders watched</div>
+  </div>
+</div>
+
+  {% for shelf, items in shelves.items() %}
+  <section class="shelf">
+    <div class="shelf-header">
+      <h2 class="section-title">{{ shelf }}</h2>
+      <span class="shelf-count">{{ items|length }}</span>
+    </div>
+    {% if items %}
+      <div class="grid grid-tight">
+        {% for item in items %}{{ cards.card(item, show_channel=false) }}{% endfor %}
+      </div>
+    {% else %}
+      <p class="muted small">No video files found in this folder.</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+
+{% else %}
+  <div class="empty">
+    <div class="empty-icon">{{ icons.folder() }}</div>
+    <h3>No folders are being watched</h3>
+    <p>Point The Hub at your media folders by setting <span class="mono">MEDIA_LIBRARY</span>
+       in the <span class="mono">.env</span> file, then restart the server.</p>
+    <code style="display:block; max-width:520px; margin:0 auto 20px; padding:14px;
+                 background:var(--ink-800); border:1px solid var(--ink-600);
+                 border-radius:8px; font-family:var(--mono); font-size:12px;
+                 text-align:left; overflow-x:auto">MEDIA_LIBRARY={"Movies": "E:/Media/Movies", "TV": "E:/Media/TV"}</code>
+    <p class="small faint">Add as many folders as you like — each one becomes its own shelf.</p>
+  </div>
+{% endif %}
+
+{{ cards.playlist_modal(nav_playlists) }}
+{% endblock %}

@@ -1,0 +1,110 @@
+{% import "partials/icons.html" as icons %}
+{#
+  One comment plus its replies. Rendered inline by watch.html and also
+  returned on its own by the comment API so a new post can be slotted into
+  the page without a reload.
+#}
+{% set is_mine = current_user and comment.user_id == current_user.id %}
+{% set can_moderate = current_user and (is_mine or current_user.is_admin) %}
+
+<article class="comment" id="comment-{{ comment.id }}" data-comment-id="{{ comment.id }}">
+  <span class="avatar {{ 'avatar-sm' if is_reply }}"
+        style="background: hsl({{ comment.avatar_hue or (comment.username|hue) }} 62% 44%)">
+    {{ (comment.display_name or comment.username)|avatar_letter }}
+  </span>
+
+  <div class="comment-main">
+    <div class="comment-head">
+      {% if comment.is_pinned %}
+        <span class="badge badge-amber">{{ icons.pin() }} Pinned</span>
+      {% endif %}
+      <span class="comment-author">{{ comment.display_name or comment.username }}</span>
+      <time class="comment-time" datetime="{{ comment.created_at }}">
+        {{ comment.created_at|time_ago }}
+      </time>
+      {% if comment.edited_at %}
+        <span class="comment-time comment-edited">edited</span>
+      {% endif %}
+    </div>
+
+    {% if comment.is_deleted %}
+      <div class="comment-body deleted">Comment deleted</div>
+    {% else %}
+      {% if comment.body %}<div class="comment-body">{{ comment.body }}</div>{% endif %}
+
+      {# A video response: the comment is the video, so it gets a real card
+         rather than a link buried in the text. #}
+      {% if comment.response_video_id %}
+        <a class="response-card" href="{{ comment.response_video_id|watch_url }}">
+          <span class="response-thumb">
+            <img src="{{ {'video_id': comment.response_video_id,
+                          'thumbnail': comment.response_thumbnail}|thumb }}"
+                 alt="" loading="lazy">
+            <span class="response-play">{{ icons.play() }}</span>
+            {% if comment.response_duration %}
+              <span class="card-duration mono">{{ comment.response_duration|duration }}</span>
+            {% endif %}
+          </span>
+          <span class="response-meta">
+            <span class="badge badge-info">{{ icons.video_response() }} Video response</span>
+            <span class="response-title">
+              {{ comment.response_title or comment.response_video_id }}
+            </span>
+            {% if comment.response_source %}
+              <span class="small faint mono">{{ comment.response_source }}</span>
+            {% endif %}
+          </span>
+        </a>
+      {% endif %}
+
+      <div class="comment-actions">
+        <button type="button" class="comment-action {{ 'is-on' if comment.my_vote == 1 }}"
+                data-comment-vote="1" aria-label="Like this comment">
+          {{ icons.thumb_up() }}
+          <span class="count" data-comment-likes>{{ comment.likes if comment.likes else '' }}</span>
+        </button>
+        <button type="button" class="comment-action {{ 'is-on' if comment.my_vote == -1 }}"
+                data-comment-vote="-1" aria-label="Dislike this comment">
+          {{ icons.thumb_down() }}
+        </button>
+
+        {% if not is_reply %}
+          <button type="button" class="comment-action" data-reply-toggle>Reply</button>
+        {% endif %}
+
+        {% if is_mine %}
+          <button type="button" class="comment-action" data-comment-edit>Edit</button>
+        {% endif %}
+        {% if can_moderate %}
+          <button type="button" class="comment-action" data-comment-delete>Delete</button>
+        {% endif %}
+      </div>
+
+      {% if not is_reply %}
+        <form class="reply-form" data-reply-form="{{ comment.id }}">
+          <span class="avatar avatar-sm"
+                style="background: hsl({{ current_user.avatar_hue if current_user else 0 }} 62% 45%)">
+            {{ (current_user.display_name if current_user else '?')|avatar_letter }}
+          </span>
+          <div class="grow" style="flex:1">
+            <textarea class="comment-input" rows="1"
+                      placeholder="Reply to {{ comment.display_name or comment.username }}"></textarea>
+            <div class="compose-actions">
+              <button type="submit" class="btn btn-primary btn-sm">Reply</button>
+            </div>
+          </div>
+        </form>
+      {% endif %}
+    {% endif %}
+
+    {% if comment.replies %}
+      <div class="comment-replies">
+        {% for reply in comment.replies %}
+          {% with comment = reply, is_reply = true %}
+            {% include "partials/comment.html" %}
+          {% endwith %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</article>

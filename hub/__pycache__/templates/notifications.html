@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Notifications · The Hub{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px">
+  <div>
+    <h1 class="page-title">Notifications</h1>
+    <p class="page-sub">
+      Replies, video responses, messages, mentions, and uploads — all in here,
+      filterable when there are too many to read.
+    </p>
+  </div>
+  {% if notifications %}
+  <button type="button" class="btn btn-ghost"
+          data-clear-notifications="{{ active_kind or '' }}">
+    {{ icons.trash() }} Clear {{ 'these' if active_kind else 'all' }}
+  </button>
+  {% endif %}
+</div>
+
+{# ------------------------------------------------------------ filter chips #}
+<div class="chips" style="margin:16px 0 20px">
+  <a class="chip {{ 'active' if not active_kind }}"
+     href="{{ url_for('main.notifications') }}">
+    All
+    {% if total %}<span class="chip-count mono">{{ total }}</span>{% endif %}
+  </a>
+  {% for key, label in kinds.items() %}
+    {% if total_by_kind.get(key) %}
+      <a class="chip {{ 'active' if active_kind == key }}"
+         href="{{ url_for('main.notifications', kind=key) }}">
+        {% if key == 'message' %}{{ icons.message() }}
+        {% elif key == 'mention' %}{{ icons.at_sign() }}
+        {% elif key == 'response' %}{{ icons.video_response() }}
+        {% elif key == 'reply' %}{{ icons.reply() }}
+        {% elif key == 'upload' %}{{ icons.upload() }}
+        {% else %}{{ icons.info() }}{% endif %}
+        {{ label }}
+        <span class="chip-count mono">{{ total_by_kind[key] }}</span>
+        {% if unread_by_kind.get(key) %}
+          <span class="chip-dot" aria-label="{{ unread_by_kind[key] }} unread"></span>
+        {% endif %}
+      </a>
+    {% endif %}
+  {% endfor %}
+</div>
+
+{% if notifications %}
+<div class="panel panel-tight">
+  {% for item in notifications %}
+  <div class="notification-row {{ 'is-unread' if not item.is_read }}">
+    <span class="notification-icon notification-{{ item.kind }}">
+      {% if item.kind == 'upload' %}{{ icons.upload() }}
+      {% elif item.kind == 'reply' %}{{ icons.reply() }}
+      {% elif item.kind == 'message' %}{{ icons.lock() }}
+      {% elif item.kind == 'mention' %}{{ icons.at_sign() }}
+      {% elif item.kind == 'response' %}{{ icons.video_response() }}
+      {% else %}{{ icons.info() }}{% endif %}
+    </span>
+    <div style="flex:1; min-width:0">
+      <div style="font-weight:600">{{ item.title }}</div>
+      {% if item.body %}<div class="small muted">{{ item.body }}</div>{% endif %}
+      <time class="mono faint" style="font-size:11px" datetime="{{ item.created_at }}">
+        {{ item.created_at|time_ago }}
+      </time>
+    </div>
+    {% if item.url %}
+      <a class="btn btn-quiet btn-sm" href="{{ item.url }}">Open</a>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% if notifications|length >= 200 %}
+  <p class="small faint" style="text-align:center; margin-top:16px">
+    Showing the most recent 200. The inbox keeps the last 500 per account and
+    drops older read entries after that.
+  </p>
+{% endif %}
+
+{% else %}
+  <div class="empty">
+    <div class="empty-icon">{{ icons.bell() }}</div>
+    <h3>{% if active_kind %}Nothing of that kind{% else %}Nothing new{% endif %}</h3>
+    <p>
+      {% if active_kind %}
+        <a href="{{ url_for('main.notifications') }}" style="color:var(--info)">See
+        everything instead</a>.
+      {% else %}
+        Replies, messages, mentions, and finished uploads land here.
+      {% endif %}
+    </p>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var button = document.querySelector("[data-clear-notifications]");
+    if (!button) return;
+    button.addEventListener("click", function () {
+      var kind = button.dataset.clearNotifications || null;
+      var what = kind ? "these notifications" : "every notification";
+      if (!window.confirm("Delete " + what + "?")) return;
+      Hub.api("/api/notifications/clear", { method: "POST", body: { kind: kind } })
+         .then(function () { location.reload(); })
+         .catch(function (err) { Hub.toast(err.message, "error"); });
+    });
+  });
+</script>
+{% endblock %}

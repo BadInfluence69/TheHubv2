@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Studio · The Hub{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; align-items:flex-start">
+  <div>
+    <h1 class="page-title">Studio</h1>
+    <p class="page-sub">Publish to YouTube from this machine. This is the only
+       part of The Hub that sends anything out.</p>
+  </div>
+  <div class="btn-group">
+    {% if connection.connected %}
+      <a class="btn btn-primary" href="{{ url_for('studio.upload') }}">
+        {{ icons.upload() }} New upload
+      </a>
+      <a class="btn btn-ghost" href="{{ url_for('studio.my_videos') }}">
+        {{ icons.youtube() }} My channel
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+{# ============================================================== connection #}
+<div class="panel">
+  {% if connection.connected %}
+    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap">
+      {% if connection.thumbnail %}
+        <img src="{{ connection.thumbnail }}" alt="" width="56" height="56"
+             style="border-radius:50%">
+      {% else %}
+        <span class="avatar avatar-lg"
+              style="background: hsl({{ connection.channel_title|hue }} 62% 42%)">
+          {{ connection.channel_title|avatar_letter }}
+        </span>
+      {% endif %}
+
+      <div style="flex:1; min-width:200px">
+        <div class="eyebrow">Connected channel</div>
+        <div style="font-size:17px; font-weight:700">{{ connection.channel_title }}</div>
+        <div class="mono faint small">
+          {{ connection.channel_id }} · connected {{ connection.connected_at|time_ago }}
+        </div>
+      </div>
+
+      <form method="post" action="{{ url_for('studio.disconnect') }}"
+            data-confirm="Disconnect this Google account? Your local data stays put.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger">Disconnect</button>
+      </form>
+    </div>
+
+  {% elif connection.configured %}
+    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap">
+      <span style="color:var(--amber)">{{ icons.google() }}</span>
+      <div style="flex:1; min-width:220px">
+        <strong>No Google account connected</strong>
+        <div class="small muted">Sign in once and The Hub keeps a refresh token
+        so you won't have to do it again.</div>
+      </div>
+      <a class="btn btn-primary" href="{{ url_for('studio.connect') }}">
+        {{ icons.google() }} Connect Google account
+      </a>
+    </div>
+
+  {% else %}
+    <div class="notice notice-amber" style="margin:0">
+      <strong>Set up OAuth credentials first</strong>
+      Uploading acts on your behalf, which an API key can't do. You need OAuth
+      credentials from Google Cloud Console.
+    </div>
+
+    <ol style="line-height:1.9; color:var(--muted); margin-bottom:0">
+      <li>Open <span class="mono">console.cloud.google.com</span> and create a project.</li>
+      <li>Enable the <strong>YouTube Data API v3</strong> for it.</li>
+      <li>Under <strong>Credentials</strong>, create an
+          <strong>OAuth client ID</strong> of type <strong>Web application</strong>.</li>
+      <li>Add this exact redirect URI:
+        <code style="display:block; margin:8px 0; padding:10px 13px;
+                     background:var(--ink-750); border:1px solid var(--ink-600);
+                     border-radius:6px; font-family:var(--mono); font-size:12px;
+                     overflow-x:auto">{{ redirect_uri or 'http://localhost:5002/studio/oauth/callback' }}</code>
+      </li>
+      <li>Download the JSON and save it as <span class="mono">client_secret.json</span>
+          next to <span class="mono">run.py</span> — or put the ID and secret in
+          <span class="mono">.env</span>.</li>
+      <li>Restart the server and this panel will offer a Connect button.</li>
+    </ol>
+  {% endif %}
+</div>
+
+{# =================================================================== stats #}
+{% if stats.total %}
+<div class="stat-row" style="margin-bottom:24px">
+  <div class="stat">
+    <div class="stat-value">{{ stats.published }}</div>
+    <div class="stat-label">Published</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ stats.in_flight }}</div>
+    <div class="stat-label">In progress</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ stats.failed }}</div>
+    <div class="stat-label">Failed</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ stats.bytes_total|file_size }}</div>
+    <div class="stat-label">Total sent</div>
+  </div>
+</div>
+{% endif %}
+
+{# ==================================================================== jobs #}
+<div class="panel" data-upload-board>
+  <div class="panel-head">
+    <h2 class="section-title">Uploads</h2>
+    <span class="small faint">Refreshes on its own — safe to close the page</span>
+  </div>
+
+  {% if jobs %}
+    <div style="display:grid; gap:14px">
+      {% for job in jobs %}
+      <div data-job="{{ job.id }}"
+           style="padding:16px; border:1px solid var(--ink-600); border-radius:10px">
+        <div style="display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:10px">
+          <div style="min-width:0; flex:1">
+            <div style="font-weight:600" class="truncate">{{ job.title }}</div>
+            <div class="mono faint small truncate">
+              {{ job.original_name or job.file_path }} · {{ job.file_size|file_size }}
+              · {{ job.privacy }}
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:10px">
+            <span class="badge {{ 'badge-go' if job.status == 'done'
+                                  else ('badge-signal' if job.status == 'error'
+                                  else ('badge-amber' if job.status in ('uploading','pending') else 'badge-info')) }}"
+                  data-job-status>
+              {{ {'pending':'Queued','uploading':'Uploading',
+                  'processing':'YouTube is processing','done':'Published',
+                  'error':'Failed','cancelled':'Cancelled'}.get(job.status, job.status) }}
+            </span>
+            <span class="mono faint small" data-job-percent>
+              {{ ((job.bytes_sent / job.file_size * 100)|round(1)) if job.file_size else 0 }}%
+            </span>
+          </div>
+        </div>
+
+        <div class="progress {{ 'is-done' if job.status == 'done'
+                                else ('is-error' if job.status == 'error'
+                                else ('is-live' if job.status in ('uploading','processing') else '')) }}">
+          <span data-job-bar
+                style="width: {{ (job.bytes_sent / job.file_size * 100) if job.file_size else 0 }}%"></span>
+        </div>
+
+        <div class="small" style="color:var(--signal); margin-top:8px"
+             data-job-error {% if not job.error %}hidden{% endif %}>{{ job.error }}</div>
+
+        <div class="btn-group" style="margin-top:12px">
+          {% if job.youtube_video_id %}
+            <a class="btn btn-sm btn-ghost" target="_blank" rel="noopener"
+               href="https://www.youtube.com/watch?v={{ job.youtube_video_id }}">
+              {{ icons.external() }} View on YouTube
+            </a>
+            <a class="btn btn-sm btn-ghost" target="_blank" rel="noopener"
+               href="https://studio.youtube.com/video/{{ job.youtube_video_id }}/edit">
+              Edit in YouTube Studio
+            </a>
+          {% endif %}
+
+          {% if job.status in ('error', 'cancelled') %}
+            <form method="post" action="{{ url_for('studio.retry_job', job_id=job.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-sm">{{ icons.refresh() }} Retry</button>
+            </form>
+          {% endif %}
+
+          {% if job.status in ('pending', 'uploading') %}
+            <form method="post" action="{{ url_for('studio.cancel_job', job_id=job.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-sm btn-ghost">Cancel</button>
+            </form>
+          {% endif %}
+
+          {% if job.status not in ('uploading', 'pending') %}
+            <form method="post" action="{{ url_for('studio.delete_job', job_id=job.id) }}"
+                  data-confirm="Remove this from the list?"
+                  style="display:flex; gap:10px; align-items:center">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label class="small faint" style="display:flex; gap:6px; align-items:center; cursor:pointer">
+                <input type="checkbox" name="delete_file" style="width:auto">
+                also delete the copy on disk
+              </label>
+              <button type="submit" class="btn btn-sm btn-danger">{{ icons.trash() }}</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+  {% else %}
+    <div class="empty" style="border:none; padding:36px 12px">
+      <div class="empty-icon">{{ icons.upload() }}</div>
+      <h3>No uploads yet</h3>
+      <p>Send a video from your computer, or publish something already sitting
+         in your local library.</p>
+      {% if connection.connected %}
+        <a href="{{ url_for('studio.upload') }}" class="btn btn-primary">Start an upload</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
+<div class="notice notice-amber">
+  <strong>About the daily quota</strong>
+  Google gives each Cloud project 10,000 API units a day and charges 1,600 per
+  upload, so roughly six uploads before it starts refusing. The quota resets at
+  midnight Pacific. You can request more from the Cloud Console if you need it.
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/studio.js') }}" defer></script>
+{% endblock %}

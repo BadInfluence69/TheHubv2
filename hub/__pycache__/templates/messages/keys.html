@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Message encryption · The Hub{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Message encryption</h1>
+<p class="page-sub">
+  Direct messages are encrypted in your browser before they reach the server.
+  This page is where the key that does it comes from.
+</p>
+
+{% if my_keys %}
+  {# ------------------------------------------------- an identity exists #}
+  <div class="panel">
+    <div class="panel-head">
+      <h2 class="section-title">Your key</h2>
+      <span class="badge badge-go">{{ icons.lock() }} Set up</span>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat">
+        <div class="stat-label">Fingerprint</div>
+        <div class="stat-value mono" style="font-size:13px">{{ my_keys.fingerprint }}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Created</div>
+        <div class="stat-value">{{ my_keys.created_at|time_ago }}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Conversations</div>
+        <div class="stat-value mono">{{ conversation_count }}</div>
+      </div>
+    </div>
+
+    <p class="small muted" style="margin-top:14px">
+      Read that fingerprint out to someone over a channel that isn't this app —
+      in person, over the phone — and have them check it against what they see
+      on your profile. If it matches, you're talking to each other and not to
+      something in the middle. This is the one check that catches a server
+      handing out a key it holds the private half of.
+    </p>
+  </div>
+
+  <div class="panel" data-key-panel>
+    <div class="panel-head"><h2 class="section-title">Unlock on this device</h2></div>
+    <p class="muted">
+      Your key is stored here encrypted. Enter the passphrase to unlock it for
+      this browser. It stays unlocked until you lock it or clear site data.
+    </p>
+
+    <div class="field" style="margin-top:14px">
+      <label class="label" for="unlock-passphrase">Message passphrase</label>
+      <input type="password" id="unlock-passphrase" autocomplete="off"
+             placeholder="The passphrase you set for messages">
+    </div>
+    <div class="btn-group">
+      <button type="button" class="btn btn-primary" data-unlock-key>
+        {{ icons.unlock() }} Unlock
+      </button>
+      <button type="button" class="btn btn-ghost" data-lock-key>
+        {{ icons.lock() }} Lock this device
+      </button>
+    </div>
+    <p class="small mono faint" data-key-status style="margin-top:10px"></p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2 class="section-title">Start over</h2>
+      <span class="badge badge-signal">Destructive</span>
+    </div>
+    <p class="muted">
+      Forgotten the passphrase? Nobody can reset it for you — that is what makes
+      the guarantee real. Generating a new key gets messaging working again from
+      today, and permanently gives up every message sent before now. Not
+      "hidden": unreadable, by anyone, forever.
+    </p>
+    <button type="button" class="btn btn-danger" data-rotate-key style="margin-top:12px">
+      {{ icons.key() }} Generate a new key
+    </button>
+  </div>
+
+{% else %}
+  {# ------------------------------------------------------ first time run #}
+  <div class="panel" data-key-panel>
+    <div class="panel-head">
+      <h2 class="section-title">Set a message passphrase</h2>
+      <span class="badge badge-amber">Not set up</span>
+    </div>
+
+    <p class="muted">
+      Pick a passphrase. Your browser will generate a key pair, encrypt the
+      private half with it, and upload only the encrypted result. The passphrase
+      itself is never sent — not at sign-up, not at sign-in, not ever.
+    </p>
+
+    <div class="notice notice-amber" style="margin:16px 0">
+      <strong>Deliberately not your account password.</strong>
+      The server has to see your account password when you sign in. A vault
+      locked with a password the server sees would be a vault the server can
+      open. Use something different, and write it down somewhere safe — there is
+      no reset.
+    </div>
+
+    <div class="field">
+      <label class="label" for="new-passphrase">Message passphrase</label>
+      <input type="password" id="new-passphrase" autocomplete="off"
+             placeholder="At least 10 characters">
+      <div class="field-hint">Longer beats complicated. Four unrelated words is fine.</div>
+    </div>
+
+    <div class="field">
+      <label class="label" for="confirm-passphrase">Confirm</label>
+      <input type="password" id="confirm-passphrase" autocomplete="off"
+             placeholder="Type it again">
+    </div>
+
+    <label class="check">
+      <input type="checkbox" id="understand-loss">
+      <span class="check-text">
+        I understand that if I lose this passphrase, my messages cannot be
+        recovered by anyone, including whoever runs this server.
+      </span>
+    </label>
+
+    <div class="btn-group" style="margin-top:16px">
+      <button type="button" class="btn btn-primary" data-create-key>
+        {{ icons.key() }} Generate my key
+      </button>
+    </div>
+    <p class="small mono faint" data-key-status style="margin-top:10px"></p>
+  </div>
+{% endif %}
+
+<div class="panel">
+  <div class="panel-head"><h2 class="section-title">What this does and doesn't cover</h2></div>
+  <table class="table">
+    <tbody>
+      <tr>
+        <td style="width:44%"><strong>Direct messages</strong></td>
+        <td class="muted">
+          Encrypted end to end. The server stores ciphertext and has no key.
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Who you messaged, and when</strong></td>
+        <td class="muted">
+          Stored in the clear. Delivering a message means knowing where to send
+          it — no design avoids this.
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Public rooms</strong></td>
+        <td class="muted">
+          Not encrypted, and can't be. Open membership means no key that only
+          the participants hold.
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Comments, likes, history</strong></td>
+        <td class="muted">
+          Stored in plain text on this server, same as they always were.
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Old messages if your passphrase leaks</strong></td>
+        <td class="muted">
+          Exposed. One long-lived key per account — there's no forward secrecy
+          in this design.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="small faint" style="margin-top:12px">
+    The full version of this is on the <a href="{{ url_for('main.privacy') }}"
+    style="color:var(--info)">privacy page</a>.
+  </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/e2ee.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/messages.js') }}" defer></script>
+<script>
+  window.HubUser = { id: {{ current_user.id }}, hasKeys: {{ 'true' if my_keys else 'false' }} };
+</script>
+{% endblock %}

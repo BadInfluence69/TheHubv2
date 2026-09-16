@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "partials/video_card.html" as cards %}
+
+{% block title %}Explore · The Hub{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Explore</h1>
+<p class="page-sub">Everything this server has catalogued, grouped into shelves.
+   Rows come from your own library, not from anyone's recommendation engine.</p>
+
+{% if shelves %}
+  {% for shelf in shelves %}
+  <section class="shelf">
+    <div class="shelf-head">
+      <div style="display:flex; align-items:center; gap:10px">
+        <h2 class="section-title">{{ shelf.title }}</h2>
+        {% if shelf.local %}<span class="badge badge-go">On disk</span>{% endif %}
+      </div>
+      {% if shelf.channel %}
+        <a href="{{ url_for('channels.channel', channel_name=shelf.channel) }}"
+           class="btn btn-quiet btn-sm">Open channel</a>
+      {% endif %}
+    </div>
+    <div class="shelf-scroll">
+      {% for video in shelf.videos %}{{ cards.card(video) }}{% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+{% else %}
+  {{ cards.empty(
+      'Nothing to explore yet',
+      'Shelves appear once the catalogue has some videos in it. Run a search to get started.',
+      url_for('main.home'), 'Back to home') }}
+{% endif %}
+
+{{ cards.playlist_modal(nav_playlists) }}
+{% endblock %}

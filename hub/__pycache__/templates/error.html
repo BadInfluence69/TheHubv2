@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}{{ title }} · The Hub{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+
+{% block content %}
+<div class="empty" style="margin-top:60px">
+  <div class="empty-icon">{{ icons.warning() }}</div>
+  <div class="eyebrow" style="margin-bottom:10px">Error {{ code }}</div>
+  <h3 style="font-size:20px">{{ title }}</h3>
+  <p>{{ message }}</p>
+  <div class="btn-group" style="justify-content:center">
+    <a href="{{ url_for('main.home') }}" class="btn btn-primary">Back to home</a>
+    <button type="button" class="btn btn-ghost" onclick="history.back()">Go back</button>
+  </div>
+</div>
+{% endblock %}

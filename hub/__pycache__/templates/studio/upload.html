@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}New upload · Studio{% endblock %}
+
+{% block head %}
+<style>
+  .dropzone {
+    display: grid;
+    place-items: center;
+    padding: 44px 24px;
+    text-align: center;
+    border: 2px dashed var(--ink-500);
+    border-radius: var(--radius-lg);
+    background: var(--ink-850);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .dropzone:hover, .dropzone.is-hover {
+    border-color: var(--signal);
+    background: color-mix(in srgb, var(--signal) 6%, var(--ink-850));
+  }
+  .dropzone svg { width: 34px; height: 34px; color: var(--faint); margin-bottom: 12px; }
+  .chosen {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 14px;
+    padding: 12px 15px;
+    border-radius: var(--radius-sm);
+    background: var(--ink-750);
+    border: 1px solid var(--ink-600);
+    font-size: 13px;
+  }
+  .counter { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .counter.over { color: var(--amber); }
+  .upload-layout { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 26px; align-items: start; }
+  @media (max-width: 1000px) { .upload-layout { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">New upload</h1>
+<p class="page-sub">This sends the file to YouTube under
+   {% if connection.connected %}<strong>{{ connection.channel_title }}</strong>{% else %}your connected channel{% endif %}.
+   Nothing else in The Hub is affected.</p>
+
+{% if not connection.connected %}
+  <div class="notice notice-signal">
+    <strong>No Google account connected</strong>
+    Connect one in Studio before you can publish.
+  </div>
+  <a href="{{ url_for('studio.dashboard') }}" class="btn btn-primary">Go to Studio</a>
+{% else %}
+
+<form method="post" enctype="multipart/form-data" data-upload-form
+      action="{{ url_for('studio.upload') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <div class="upload-layout">
+    <div>
+      {# ------------------------------------------------------ source pick #}
+      <div class="panel">
+        <div class="panel-head">
+          <h2 class="section-title">The video</h2>
+          <div class="chips">
+            <button type="button" class="chip active" data-source-tab="file">From this computer</button>
+            <button type="button" class="chip" data-source-tab="library">From my library</button>
+          </div>
+        </div>
+
+        <div data-source-panel="file">
+          <div class="dropzone" data-dropzone tabindex="0" role="button"
+               aria-label="Choose a video file">
+            {{ icons.upload() }}
+            <strong>Drop a video here</strong>
+            <span class="small muted">or click to browse</span>
+            <span class="small faint" style="margin-top:8px">
+              MP4, MOV, MKV, AVI, WebM and friends
+            </span>
+          </div>
+          <input type="file" name="video_file" accept="video/*" hidden>
+          <div class="chosen" data-chosen-file hidden></div>
+        </div>
+
+        <div data-source-panel="library" hidden>
+          <div class="field">
+            <label for="library_video">Pick a file already on this machine</label>
+            <select id="library_video" name="library_video">
+              <option value="">Choose a file…</option>
+              {% for item in library %}
+                <option value="{{ item.id }}">
+                  {{ item.shelf }} — {{ item.title }} ({{ item.file_size|file_size }})
+                </option>
+              {% endfor %}
+            </select>
+            <div class="field-hint">
+              Uploaded straight from disk. No second copy is made, and the
+              original is never moved or deleted.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# --------------------------------------------------------- details #}
+      <div class="panel">
+        <div class="panel-head"><h2 class="section-title">Details</h2></div>
+
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:baseline">
+            <label for="title">Title</label>
+            <span class="counter" data-counter-for="title">0/100</span>
+          </div>
+          <input id="title" type="text" name="title" maxlength="100" required
+                 data-counter placeholder="What people see in search results">
+        </div>
+
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:baseline">
+            <label for="description">Description</label>
+            <span class="counter" data-counter-for="description">0/5000</span>
+          </div>
+          <textarea id="description" name="description" rows="6" maxlength="5000"
+                    data-counter placeholder="Links, timestamps, credits…"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="tags">Tags</label>
+          <input id="tags" type="text" name="tags"
+                 placeholder="guitar, home studio, demo">
+          <div class="field-hint">Comma separated. Up to 60.</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="category_id">Category</label>
+            <select id="category_id" name="category_id">
+              {% for value, label in categories %}
+                <option value="{{ value }}" {{ 'selected' if value == '22' }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="thumbnail_file">Custom thumbnail</label>
+            <input id="thumbnail_file" type="file" name="thumbnail_file" accept="image/*">
+            <div class="field-hint">Needs a verified YouTube channel. Skipped if not.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ------------------------------------------------------- publishing #}
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h2 class="section-title">Publishing</h2></div>
+
+        <div class="field">
+          <label for="privacy">Who can watch</label>
+          <select id="privacy" name="privacy">
+            <option value="private" selected>Private — only you</option>
+            <option value="unlisted">Unlisted — anyone with the link</option>
+            <option value="public">Public — everyone</option>
+          </select>
+          <div class="field-hint">Private is the safe default. You can change it
+            later from My channel.</div>
+        </div>
+
+        <div class="field" data-schedule>
+          <label for="publish_at">Go public at</label>
+          <input id="publish_at" type="datetime-local" name="publish_at">
+          <div class="field-hint">Optional. Leave blank to publish immediately.
+            Scheduled videos stay private until then.</div>
+        </div>
+
+        <div class="field">
+          <label class="check">
+            <input type="checkbox" name="made_for_kids">
+            <span class="check-text">
+              Made for kids
+              <small>Required by law in some places. Turns off comments and
+              personalised ads on the video.</small>
+            </span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" disabled>
+          {{ icons.upload() }} Publish to YouTube
+        </button>
+
+        <p class="small faint" style="margin:14px 0 0">
+          The file transfers to this server first, then uploads to YouTube in the
+          background. You can close the page once the transfer finishes.
+        </p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2 class="section-title">Grab from a link</h2></div>
+        <p class="small muted">Download a video into your uploads folder so you
+           can publish it here. Use this for content you own or have the right
+           to re-publish.</p>
+      </div>
+    </div>
+  </div>
+</form>
+
+<form method="post" action="{{ url_for('studio.fetch_remote') }}" class="panel"
+      style="margin-top:0">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div style="display:flex; gap:10px; flex-wrap:wrap">
+    <input type="url" name="url" placeholder="https://…" style="flex:1; min-width:240px">
+    <button type="submit" class="btn btn-ghost">{{ icons.download() }} Download</button>
+  </div>
+</form>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/studio.js') }}" defer></script>
+{% endblock %}

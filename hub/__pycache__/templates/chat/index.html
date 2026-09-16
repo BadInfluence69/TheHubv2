@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Rooms · The Hub{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px">
+  <div>
+    <h1 class="page-title">Rooms</h1>
+    <p class="page-sub">
+      Open conversation between accounts on this server. Anyone signed in here
+      can read and post; nobody else can see any of it.
+    </p>
+  </div>
+</div>
+
+<div class="notice" style="margin-bottom:20px">
+  <strong>{{ icons.info() }} Rooms are not private the way messages are.</strong>
+  Room posts are stored as plain text and every account on this server can read
+  them — including whoever runs it. That's the trade for having an open room.
+  Use <a href="{{ url_for('messages.inbox') }}" style="color:var(--info)">direct
+  messages</a> for anything you want kept between two people.
+</div>
+
+<div class="grid grid-tight">
+  {% for room in rooms %}
+    <a class="card card-quick" href="{{ url_for('chat.room', slug=room.slug) }}">
+      <div class="card-body">
+        <div class="card-title">
+          <span class="rail-hash">#</span> {{ room.name }}
+          {% if room.is_locked %}<span class="badge badge-amber">Read-only</span>{% endif %}
+          {% if room.unread %}<span class="badge badge-signal">{{ room.unread }} new</span>{% endif %}
+        </div>
+        <div class="card-meta muted small">{{ room.topic or 'No topic set.' }}</div>
+        <div class="card-meta mono faint small" style="margin-top:8px">
+          {{ room.message_count|compact }} post{{ '' if room.message_count == 1 else 's' }}
+          {% if room.last_at %} · {{ room.last_at|time_ago }}{% endif %}
+        </div>
+      </div>
+    </a>
+  {% endfor %}
+</div>
+
+<div class="panel" style="margin-top:24px">
+  <div class="panel-head"><h2 class="section-title">Open a new room</h2></div>
+  <form method="post" action="{{ url_for('chat.create') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+      <label class="label" for="room-name">Name</label>
+      <input type="text" id="room-name" name="name" maxlength="60" required
+             placeholder="Late night horror">
+    </div>
+    <div class="field">
+      <label class="label" for="room-topic">Topic</label>
+      <input type="text" id="room-topic" name="topic" maxlength="200"
+             placeholder="What belongs in here">
+    </div>
+    <button type="submit" class="btn btn-primary">{{ icons.plus() }} Create room</button>
+  </form>
+</div>
+{% endblock %}

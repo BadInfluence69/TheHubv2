@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Manage subscriptions · The Hub{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Manage subscriptions</h1>
+<p class="page-sub">Add any channel by name. Names are matched against what the
+   catalogue already knows, so spelling them the way YouTube does works best.</p>
+
+<div class="panel">
+  <form method="post" action="{{ url_for('channels.add_form') }}"
+        style="display:flex; gap:10px; flex-wrap:wrap">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="channel" placeholder="Channel name"
+           style="flex:1; min-width:220px" required>
+    <button type="submit" class="btn btn-primary">{{ icons.plus() }} Follow</button>
+  </form>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="section-title">Following ({{ subscriptions|length }})</h2>
+  </div>
+
+  {% if subscriptions %}
+  <table class="table">
+    <thead>
+      <tr><th>Channel</th><th>Videos</th><th>Since</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for subscription in subscriptions %}
+      <tr>
+        <td>
+          <a href="{{ url_for('channels.channel', channel_name=subscription.channel_name) }}"
+             style="display:flex; align-items:center; gap:10px">
+            <span class="avatar avatar-sm"
+                  style="background: hsl({{ subscription.channel_name|hue }} 62% 42%)">
+              {{ subscription.channel_name|avatar_letter }}
+            </span>
+            {{ subscription.channel_name }}
+          </a>
+        </td>
+        <td class="mono faint">{{ subscription.video_count }}</td>
+        <td class="mono faint">{{ subscription.created_at|time_ago }}</td>
+        <td style="text-align:right">
+          <form method="post" action="{{ url_for('channels.remove_form') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="channel" value="{{ subscription.channel_name }}">
+            <button type="submit" class="btn btn-danger btn-sm">Unfollow</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="muted">You're not following anything yet.</p>
+  {% endif %}
+</div>
+
+{% if suggestions %}
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="section-title">Channels in your catalogue</h2>
+    <span class="small faint">Ones you've watched but aren't following</span>
+  </div>
+  <div class="chips">
+    {% for channel in suggestions %}
+      <form method="post" action="{{ url_for('channels.add_form') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="channel" value="{{ channel.channel_name }}">
+        <button type="submit" class="chip">
+          {{ icons.plus() }} {{ channel.channel_name }}
+          <span class="mono faint">{{ channel.video_count }}</span>
+        </button>
+      </form>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

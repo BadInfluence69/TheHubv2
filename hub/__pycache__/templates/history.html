@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% import "partials/video_card.html" as cards %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}History · The Hub{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; align-items:flex-start">
+  <div>
+    <h1 class="page-title">Watch history</h1>
+    <p class="page-sub">Everything you've played on this server, newest first.</p>
+  </div>
+  <div class="btn-group">
+    <form method="get" style="display:flex; gap:8px">
+      <input type="search" name="q" value="{{ term }}" placeholder="Search history"
+             style="min-width:200px">
+      <button type="submit" class="btn btn-ghost">{{ icons.search() }}</button>
+    </form>
+    <form method="post" action="{{ url_for('library.clear_history') }}"
+          data-confirm="Clear your entire watch history? This can't be undone.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-danger">{{ icons.trash() }} Clear all</button>
+    </form>
+  </div>
+</div>
+
+{% if videos %}
+  <div style="display:grid; gap:4px; margin-top:20px">
+    {% for video in videos %}
+      <div style="display:flex; align-items:center; gap:8px">
+        <div style="flex:1; min-width:0">
+          {{ cards.card(video, variant='row',
+               progress=percent(video.position_seconds, video.duration_seconds or video.duration)) }}
+        </div>
+        <button type="button" class="icon-btn" title="Remove from history"
+                onclick="Hub.api('/api/history/{{ video.history_id }}/delete',{method:'POST'}).then(()=>this.parentElement.remove())">
+          {{ icons.close() }}
+        </button>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  {{ cards.empty('No history' if not term else 'No matches',
+       'Anything you watch shows up here — unless you pause history in settings.') }}
+{% endif %}
+
+{{ cards.playlist_modal(nav_playlists) }}
+{% endblock %}

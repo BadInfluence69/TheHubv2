@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Privacy · The Hub{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Privacy</h1>
+<p class="page-sub">
+  What this server stores, what it can read, and what it would have to hand
+  over if somebody with a court order asked.
+</p>
+
+<div class="notice" style="margin-bottom:24px">
+  <strong>Written to be checkable.</strong>
+  Every claim below matches something in the code or the database schema. Where
+  a protection has a limit, the limit is stated rather than left out. A privacy
+  policy that overstates its protections isn't a stronger policy — it's one
+  that falls apart the first time anybody tests it.
+</div>
+
+{# ====================================================== the short version #}
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="section-title">The short version</h2>
+    <span class="badge badge-go">{{ icons.shield() }} No third parties</span>
+  </div>
+  <ul style="line-height:2; color:var(--muted)">
+    <li>Nothing here is sold, shared, or used to train anything.</li>
+    <li>There is no advertising, no tracking pixel, and no third-party script.
+        The page you're reading loads nothing from outside this server.</li>
+    <li>The only counting that happens anywhere is a per-link total on creator
+        support links, and an operator-only dashboard that adds up rows already
+        listed below. Neither builds a profile of you.</li>
+    <li>Direct messages are encrypted in your browser. This server stores
+        ciphertext it holds no key for.</li>
+    <li>Plenty of other things <em>are</em> stored — comments, likes, watch
+        history, room posts. They're listed below.</li>
+  </ul>
+</div>
+
+{# ============================================================ encryption #}
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="section-title">Direct messages</h2>
+    <span class="badge badge-go">{{ icons.lock() }} End-to-end</span>
+  </div>
+
+  <p>Your browser generates an ECDH P-256 key pair. The public half is uploaded
+     so others can encrypt to you. The private half is encrypted with AES-GCM
+     under a key derived from a passphrase by PBKDF2 (600,000 iterations) and
+     only then uploaded. This server stores the encrypted result, the nonce, and
+     the derivation parameters.</p>
+
+  <p><strong>The passphrase never leaves your browser.</strong> Not at sign-up,
+     not at sign-in, not in any request. It is deliberately separate from your
+     account password, because this server necessarily sees your account
+     password when you sign in — a vault locked with a password the server sees
+     would be a vault the server could open.</p>
+
+  <p>Each message is encrypted with a key derived from your private key and the
+     recipient's public key. Only the two of you can compute it. What is written
+     to the database is a base64 blob and a nonce.</p>
+
+  <div class="notice notice-amber" style="margin-top:16px">
+    <strong>What this does not protect.</strong>
+    <ul style="line-height:1.9; margin:8px 0 0">
+      <li><strong>Metadata.</strong> That you messaged a particular person, and
+          when, is stored in the clear. Delivering a message means knowing where
+          to send it. No design avoids this.</li>
+      <li><strong>Forward secrecy.</strong> There is one long-lived key pair per
+          account and no ratchet. If your passphrase is compromised, your whole
+          message history is readable.</li>
+      <li><strong>Key substitution.</strong> This server hands out public keys.
+          A malicious operator could hand out one they hold the private half of.
+          Compare fingerprints with the other person somewhere other than here —
+          that check is why they're displayed.</li>
+      <li><strong>Your own devices.</strong> Encryption stops at the screen.
+          Anyone with access to your unlocked browser can read your messages.</li>
+    </ul>
+  </div>
+
+  <p class="small faint" style="margin-top:14px">
+    If you lose the passphrase, your messages are gone. No administrator can
+    recover them. That is the same property as "the operator can't read them",
+    seen from the other side.
+  </p>
+</div>
+
+{# ================================================================ stored #}
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="section-title">What is stored, in full</h2>
+    <span class="badge badge-info">{{ icons.info() }} Readable by the operator</span>
+  </div>
+
+  <p>Everything below lives in one SQLite file on this machine and is readable
+     by whoever runs this server. This is the honest list, not the flattering
+     one.</p>
+
+  <table class="table">
+    <thead>
+      <tr><th>Stored</th><th>Why</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Username and password hash</strong></td>
+        <td class="muted">Sign-in. The password itself is not stored — only a
+            PBKDF2-SHA256 hash of it.</td>
+      </tr>
+      <tr>
+        <td><strong>Display name and bio</strong></td>
+        <td class="muted">Whatever you chose to put there.</td>
+      </tr>
+      <tr>
+        <td><strong>Sessions</strong></td>
+        <td class="muted">A hash of your session token, plus expiry, browser user
+            agent, and IP address. See the note below on turning the last two
+            off.</td>
+      </tr>
+      <tr>
+        <td><strong>Comments and video responses</strong></td>
+        <td class="muted">Plain text, publicly visible on this server.</td>
+      </tr>
+      <tr>
+        <td><strong>Room posts</strong></td>
+        <td class="muted">Plain text, readable by every account here.</td>
+      </tr>
+      <tr>
+        <td><strong>Likes, dislikes, subscriptions, playlists</strong></td>
+        <td class="muted">So the features work at all.</td>
+      </tr>
+      <tr>
+        <td><strong>Watch history and resume positions</strong></td>
+        <td class="muted">Continue watching, and recommendations.
+            Can be paused in settings.</td>
+      </tr>
+      <tr>
+        <td><strong>Search history</strong></td>
+        <td class="muted">Search suggestions. Can be paused and cleared.</td>
+      </tr>
+      <tr>
+        <td><strong>Notifications</strong></td>
+        <td class="muted">Titles and short previews. A message notification
+            never contains message text — this server has never seen it.</td>
+      </tr>
+      <tr>
+        <td><strong>Message metadata</strong></td>
+        <td class="muted">Who, with whom, when, read or unread. Not content.</td>
+      </tr>
+      <tr>
+        <td><strong>Uploaded files</strong></td>
+        <td class="muted">Video responses and Studio uploads sit on this disk.</td>
+      </tr>
+      <tr>
+        <td><strong>Creator link opens</strong></td>
+        <td class="muted">A single running total per support, merch, or
+            affiliate link, so a creator can tell whether it works. No account,
+            no timestamp, and no row per click is stored — the table has no
+            column that could say <em>who</em> opened a link, so that question
+            can't be answered from it by anyone, including whoever runs this
+            server.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+{# =============================================================== leaving #}
+<div class="panel">
+  <div class="panel-head"><h2 class="section-title">What leaves this machine</h2></div>
+  <div style="display:grid; gap:14px">
+    <div style="display:flex; gap:13px">
+      <span style="color:var(--amber)">{{ icons.search() }}</span>
+      <div><strong>Search queries</strong>
+        <div class="small muted">Sent to YouTube and Tubi when you search, the
+        same as typing into their own search boxes.</div></div>
+    </div>
+    <div style="display:flex; gap:13px">
+      <span style="color:var(--amber)">{{ icons.film() }}</span>
+      <div><strong>Stream requests</strong>
+        <div class="small muted">yt-dlp fetches the video from its source so it
+        can play here. That request carries this server's IP address, not
+        yours.</div></div>
+    </div>
+    <div style="display:flex; gap:13px">
+      <span style="color:var(--signal)">{{ icons.upload() }}</span>
+      <div><strong>Videos you publish from Studio</strong>
+        <div class="small muted">Only when you explicitly upload one, and only
+        to the Google account you connected yourself.</div></div>
+    </div>
+  </div>
+  <p class="small faint" style="margin-top:16px">
+    Nothing social leaves. Commenting here does not comment on YouTube. Liking
+    here does not like there. Messages and room posts never leave this machine
+    at all.
+  </p>
+</div>
+
+{# ================================================================== legal #}
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="section-title">Legal requests</h2>
+    <span class="badge badge-amber">Read this part carefully</span>
+  </div>
+
+  <p>You may have seen services claim they cannot be compelled to produce
+     anything. That claim is almost always wrong, and it is worth being precise
+     about instead.</p>
+
+  <p><strong>A valid legal order reaches whatever the operator actually holds.</strong>
+     Not what a policy page says they hold. So the only real protection is the
+     data that was never collected, or that exists in a form nobody can read.</p>
+
+  <table class="table">
+    <thead>
+      <tr><th>If compelled, could be produced</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Message content</td>
+          <td><span class="badge badge-go">Ciphertext only</span>
+          <div class="small muted">Producible, but unreadable. No key exists on
+          this server to decrypt it.</div></td></tr>
+      <tr><td>Who messaged whom, and when</td>
+          <td><span class="badge badge-signal">Producible</span></td></tr>
+      <tr><td>Comments and room posts</td>
+          <td><span class="badge badge-signal">Producible in full</span></td></tr>
+      <tr><td>Watch and search history</td>
+          <td><span class="badge badge-signal">Producible in full</span></td></tr>
+      <tr><td>Which links you opened</td>
+          <td><span class="badge badge-go">Not stored</span>
+          <div class="small muted">Only a total per link, with nobody attached
+          to it.</div></td></tr>
+      <tr><td>Username, IP addresses, session records</td>
+          <td><span class="badge badge-signal">Producible</span></td></tr>
+      <tr><td>Your password</td>
+          <td><span class="badge badge-go">Not stored</span>
+          <div class="small muted">Only a slow hash. Not reversible.</div></td></tr>
+      <tr><td>Your message passphrase</td>
+          <td><span class="badge badge-go">Never received</span></td></tr>
+    </tbody>
+  </table>
+
+  <p class="small faint" style="margin-top:14px">
+    This is a description of how the software stores data, not legal advice, and
+    it isn't a commitment about how any particular operator will respond to any
+    particular request. If you are running this server for other people, what
+    you can be made to hand over depends on your jurisdiction — talk to a lawyer
+    rather than relying on a page inside your own app.
+  </p>
+</div>
+
+{# ================================================================ control #}
+<div class="panel">
+  <div class="panel-head"><h2 class="section-title">Turning things off</h2></div>
+  <ul style="line-height:2; color:var(--muted)">
+    <li><strong>Pause history</strong> — Settings. Stops watch and search
+        history being written at all.</li>
+    <li><strong>Clear history</strong> — Settings, and the History page. Deletes
+        what's already there.</li>
+    <li><strong>Delete a conversation</strong> — removes it for both people,
+        permanently.</li>
+    <li><strong>Lock your key</strong> — removes it from this browser without
+        deleting anything on the server.</li>
+    <li><strong>Block someone</strong> — stops their messages and hides their
+        room posts from you.</li>
+    <li><strong>Server operators</strong> — <span class="mono">STORE_SESSION_IP=0</span>
+        in <span class="mono">.env</span> stops IP addresses and user agents
+        being recorded with sessions.</li>
+  </ul>
+</div>
+
+<p class="small faint" style="text-align:center; margin-top:32px">
+  The Hub v{{ app_version }} · This page describes this build. If you change how
+  data is handled, change this page too.
+</p>
+{% endblock %}

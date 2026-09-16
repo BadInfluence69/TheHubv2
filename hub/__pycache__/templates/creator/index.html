@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Creator · The Hub{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Creator</h1>
+<p class="page-sub">
+  Set up direct support, merch, and affiliate links for your channel. Fans pay
+  you directly — this platform takes nothing and never holds the money.
+</p>
+
+<div style="display:grid; gap:14px; margin-top:22px">
+  {% for profile in profiles %}
+  <div class="panel" style="margin:0">
+    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap">
+      <span class="avatar avatar-lg"
+            style="background: hsl({{ profile.channel_name|hue }} 62% 42%)">
+        {{ profile.channel_name|avatar_letter }}
+      </span>
+      <div style="flex:1; min-width:200px">
+        <div style="font-size:17px; font-weight:700">{{ profile.channel_name }}</div>
+        <div class="small faint">
+          {% if profile.get('unclaimed') %}
+            Not set up yet
+          {% elif profile.is_published %}
+            Published ·
+            {{ profile.summary.counts.support }} support,
+            {{ profile.summary.counts.merch }} merch,
+            {{ profile.summary.counts.affiliate }} affiliate ·
+            {{ profile.summary.total_clicks }} opens
+          {% else %}
+            Draft — not visible to fans yet
+          {% endif %}
+        </div>
+      </div>
+      <a class="btn btn-primary"
+         href="{{ url_for('creators.edit', channel_name=profile.channel_name) }}">
+        {{ icons.coin() }} {{ 'Set up' if profile.get('unclaimed') else 'Edit' }}
+      </a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="notice" style="margin-top:24px">
+  <strong>No ads, by design.</strong>
+  There is no advertising system on this platform and no plan for one. The
+  trade that comes with that is worth saying plainly: your income here is what
+  your fans choose to send you, so it depends on you telling them what you're
+  doing and why. A specific ask on a channel people already like tends to
+  outperform an ad-funded page's payout at this scale — but it is not passive,
+  and it will not fill in on its own.
+</div>
+{% endblock %}

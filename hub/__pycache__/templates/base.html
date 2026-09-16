@@ -1,0 +1,270 @@
+{% import "partials/icons.html" as icons %}
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ user_settings.get('theme', 'dark') }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="color-scheme" content="dark light">
+<meta name="robots" content="noindex, nofollow">
+<title>{% block title %}The Hub{% endblock %}</title>
+<link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/hub.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+
+<div class="signal-strip" aria-hidden="true"></div>
+
+<div class="shell">
+
+  {# ------------------------------------------------------------- side rail #}
+  <aside class="rail" aria-label="Main navigation">
+    <div class="brand">
+      <span class="brand-mark">{{ icons.play() }}</span>
+      <span class="brand-word">The Hub</span>
+    </div>
+
+    <nav class="rail-nav">
+      <div class="rail-section">
+        <a href="{{ url_for('main.home') }}"
+           class="rail-link {{ 'active' if request.endpoint == 'main.home' }}">
+          {{ icons.home() }}<span class="rail-label">Home</span>
+        </a>
+        <a href="{{ url_for('main.explore') }}"
+           class="rail-link {{ 'active' if request.endpoint == 'main.explore' }}">
+          {{ icons.compass() }}<span class="rail-label">Explore</span>
+        </a>
+        <a href="{{ url_for('channels.feed') }}"
+           class="rail-link {{ 'active' if request.endpoint == 'channels.feed' }}">
+          {{ icons.stack() }}<span class="rail-label">Subscriptions</span>
+          {% if nav_subscriptions %}
+            <span class="rail-meta">{{ nav_subscriptions|length }}</span>
+          {% endif %}
+        </a>
+        <a href="{{ url_for('main.trending') }}"
+           class="rail-link {{ 'active' if request.endpoint == 'main.trending' }}">
+          {{ icons.flame() }}<span class="rail-label">Trending</span>
+        </a>
+      </div>
+
+      <div class="rail-section">
+        <div class="rail-section-title">You</div>
+        <a href="{{ url_for('library.index') }}"
+           class="rail-link {{ 'active' if request.endpoint == 'library.index' }}">
+          {{ icons.library() }}<span class="rail-label">Library</span>
+        </a>
+        <a href="{{ url_for('library.history') }}"
+           class="rail-link {{ 'active' if request.endpoint == 'library.history' }}">
+          {{ icons.clock() }}<span class="rail-label">History</span>
+        </a>
+        {% for playlist in nav_playlists[:6] %}
+          <a href="{{ url_for('library.playlist', slug=playlist.slug) }}"
+             class="rail-link {{ 'active' if request.view_args and request.view_args.get('slug') == playlist.slug }}">
+            {% if playlist.system_kind == 'watch_later' %}{{ icons.clock() }}
+            {% elif playlist.system_kind == 'liked' %}{{ icons.thumb_up() }}
+            {% else %}{{ icons.list() }}{% endif %}
+            <span class="rail-label">{{ playlist.title }}</span>
+            <span class="rail-meta">{{ playlist.item_count }}</span>
+          </a>
+        {% endfor %}
+      </div>
+
+      {# The social layer. Everything under here is people on this server
+         talking to each other — nothing in this section reaches outside. #}
+      <div class="rail-section">
+        <div class="rail-section-title">Community</div>
+        <a href="{{ url_for('messages.inbox') }}"
+           class="rail-link {{ 'active' if request.blueprint == 'messages' }}">
+          {{ icons.message() }}<span class="rail-label">Messages</span>
+          {% if unread_messages %}
+            <span class="rail-meta rail-meta-alert">
+              {{ unread_messages if unread_messages < 100 else '99+' }}
+            </span>
+          {% endif %}
+        </a>
+        <a href="{{ url_for('chat.index') }}"
+           class="rail-link {{ 'active' if request.blueprint == 'chat' }}">
+          {{ icons.chat() }}<span class="rail-label">Rooms</span>
+          {% if unread_chat %}
+            <span class="rail-meta rail-meta-alert">
+              {{ unread_chat if unread_chat < 100 else '99+' }}
+            </span>
+          {% endif %}
+        </a>
+        {% for room in nav_rooms[:5] %}
+          <a href="{{ url_for('chat.room', slug=room.slug) }}"
+             class="rail-link rail-link-sub
+                    {{ 'active' if request.view_args and request.view_args.get('slug') == room.slug }}">
+            <span class="rail-hash">#</span>
+            <span class="rail-label">{{ room.name }}</span>
+            {% if room.unread %}<span class="rail-dot" aria-label="Unread"></span>{% endif %}
+          </a>
+        {% endfor %}
+      </div>
+
+      <div class="rail-section">
+        <div class="rail-section-title">Your machine</div>
+        <a href="{{ url_for('media.library') }}"
+           class="rail-link {{ 'active' if request.endpoint == 'media.library' }}">
+          {{ icons.drive() }}<span class="rail-label">Local files</span>
+        </a>
+        <a href="{{ url_for('studio.dashboard') }}"
+           class="rail-link {{ 'active' if request.blueprint == 'studio' }}">
+          {{ icons.upload() }}<span class="rail-label">Studio</span>
+        </a>
+        <a href="{{ url_for('creators.index') }}"
+           class="rail-link {{ 'active' if request.blueprint == 'creators' }}">
+          {{ icons.coin() }}<span class="rail-label">Creator</span>
+        </a>
+        <a href="{{ url_for('media.live') }}"
+           class="rail-link {{ 'active' if request.endpoint == 'media.live' }}">
+          {{ icons.broadcast() }}<span class="rail-label">Live feed</span>
+        </a>
+      </div>
+
+      {% if nav_subscriptions %}
+      <div class="rail-section">
+        <div class="rail-section-title">Following</div>
+        {% for subscription in nav_subscriptions %}
+          <a href="{{ url_for('channels.channel', channel_name=subscription.channel_name) }}"
+             class="rail-link">
+            <span class="rail-avatar"
+                  style="background: hsl({{ subscription.channel_name|hue }} 62% 42%)">
+              {{ subscription.channel_name|avatar_letter }}
+            </span>
+            <span class="rail-label">{{ subscription.channel_name }}</span>
+          </a>
+        {% endfor %}
+        <a href="{{ url_for('channels.manage') }}" class="rail-link">
+          {{ icons.settings() }}<span class="rail-label">Manage all</span>
+        </a>
+      </div>
+      {% endif %}
+
+      <div class="rail-section">
+        <div class="rail-section-title">This server</div>
+        <a href="{{ url_for('auth.settings') }}"
+           class="rail-link {{ 'active' if request.endpoint == 'auth.settings' }}">
+          {{ icons.settings() }}<span class="rail-label">Settings</span>
+        </a>
+        <a href="{{ url_for('feedback.board') }}"
+           class="rail-link {{ 'active' if request.blueprint == 'feedback' }}">
+          {{ icons.bulb() }}<span class="rail-label">Ideas board</span>
+        </a>
+        <a href="{{ url_for('main.about') }}"
+           class="rail-link {{ 'active' if request.endpoint == 'main.about' }}">
+          {{ icons.info() }}<span class="rail-label">About</span>
+        </a>
+        <a href="{{ url_for('main.privacy') }}"
+           class="rail-link {{ 'active' if request.endpoint == 'main.privacy' }}">
+          {{ icons.shield() }}<span class="rail-label">Privacy</span>
+        </a>
+
+        {# Operator's private dashboard. This block is skipped entirely for
+           every non-admin account, and for admins too unless METRICS_SHOW_LINK
+           is switched on — by default nothing in the interface points at it.
+           Hiding the link is cosmetic; the route itself answers 404 to anyone
+           who isn't an admin, which is the part that actually protects it. #}
+        {% if show_metrics_link %}
+        <a href="{{ url_for('metrics.dashboard') }}"
+           class="rail-link {{ 'active' if request.blueprint == 'metrics' }}">
+          {{ icons.chart() }}<span class="rail-label">Metrics</span>
+          <span class="rail-meta">private</span>
+        </a>
+        {% endif %}
+      </div>
+    </nav>
+
+    <div class="rail-footer">
+      <div>The Hub v{{ app_version }}</div>
+      <div>Comments, likes, and subscriptions stay on this machine.</div>
+      <div><a href="{{ url_for('main.privacy') }}" class="rail-footer-link">
+        What's stored, and what isn't</a></div>
+    </div>
+  </aside>
+
+  {# ---------------------------------------------------------------- topbar #}
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn" data-rail-toggle type="button" aria-label="Toggle navigation">
+        {{ icons.menu() }}
+      </button>
+
+      <div class="search">
+        <form class="search-form" action="{{ url_for('main.search') }}"
+              method="get" role="search" data-search-form autocomplete="off">
+          <input type="search" name="q" placeholder="Search YouTube, Tubi, and your drive"
+                 value="{{ request.args.get('q', '') }}" aria-label="Search">
+          <button type="submit" aria-label="Search">{{ icons.search() }}</button>
+        </form>
+        <div class="suggestions" data-suggestions role="listbox"></div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:4px; margin-left:auto">
+        <a class="icon-btn" href="{{ url_for('studio.upload') }}" title="Upload a video">
+          {{ icons.upload() }}
+        </a>
+        <a class="icon-btn" href="{{ url_for('messages.inbox') }}"
+           title="Messages" style="position:relative">
+          {{ icons.message() }}
+          {% if unread_messages %}
+            <span style="position:absolute; top:4px; right:4px; min-width:16px; height:16px;
+                         padding:0 4px; border-radius:8px; background:var(--info);
+                         color:#fff; font-size:10px; font-weight:700; line-height:16px;
+                         text-align:center; font-family:var(--mono)">
+              {{ unread_messages if unread_messages < 10 else '9+' }}
+            </span>
+          {% endif %}
+        </a>
+        <a class="icon-btn" href="{{ url_for('main.notifications') }}"
+           data-notification-bell title="Notifications" style="position:relative">
+          {{ icons.bell() }}
+          <span data-notification-count
+                {% if not unread_notifications %}hidden{% endif %}
+                style="position:absolute; top:4px; right:4px; min-width:16px; height:16px;
+                       padding:0 4px; border-radius:8px; background:var(--signal);
+                       color:#fff; font-size:10px; font-weight:700; line-height:16px;
+                       text-align:center; font-family:var(--mono)">
+            {{ unread_notifications if unread_notifications < 10 else '9+' }}
+          </span>
+        </a>
+        <button class="icon-btn" type="button" data-theme-toggle title="Switch theme">
+          {{ icons.contrast() }}
+        </button>
+        {% if current_user %}
+          <a href="{{ url_for('auth.settings') }}" title="{{ current_user.username }}"
+             style="margin-left:6px">
+            <span class="avatar avatar-sm"
+                  style="background: hsl({{ current_user.avatar_hue }} 62% 45%)">
+              {{ current_user.display_name|avatar_letter }}
+            </span>
+          </a>
+        {% endif %}
+      </div>
+    </header>
+
+    <main class="page {% block page_class %}{% endblock %}">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+{# ----------------------------------------------------------------- flashes #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-stack">
+      {% for category, message in messages %}
+        <div class="flash flash-{{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">
+          <div>{{ message }}</div>
+          <button type="button" aria-label="Dismiss">&times;</button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<script src="{{ url_for('static', filename='js/hub.js') }}" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

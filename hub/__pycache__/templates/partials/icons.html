@@ -1,0 +1,125 @@
+{# Inline SVG icons. Stroke-based so they inherit currentColor and stay crisp
+   at any size without a sprite sheet or an icon font request. #}
+
+{% macro _svg(paths, fill='none') %}
+<svg viewBox="0 0 24 24" fill="{{ fill }}" stroke="currentColor" stroke-width="1.8"
+     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+  {{ paths }}
+</svg>
+{% endmacro %}
+
+{% macro play() %}<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>{% endmacro %}
+
+{% macro home() %}{{ _svg('<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.8V20h13V9.8"/><path d="M9.5 20v-6h5v6"/>'|safe) }}{% endmacro %}
+
+{% macro compass() %}{{ _svg('<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>'|safe) }}{% endmacro %}
+
+{% macro stack() %}{{ _svg('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M6 19h12"/>'|safe) }}{% endmacro %}
+
+{% macro flame() %}{{ _svg('<path d="M12 3s5 4 5 8a5 5 0 0 1-10 0c0-2 1-3 1-3s0 2 1.5 2S12 3 12 3z"/><path d="M7 13a5 5 0 0 0 10 0"/>'|safe) }}{% endmacro %}
+
+{% macro library() %}{{ _svg('<path d="M4 5v14"/><path d="M8 5v14"/><rect x="11" y="5" width="9" height="14" rx="1.5"/>'|safe) }}{% endmacro %}
+
+{% macro clock() %}{{ _svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'|safe) }}{% endmacro %}
+
+{% macro list() %}{{ _svg('<path d="M4 7h11"/><path d="M4 12h11"/><path d="M4 17h7"/><path d="m17 12 4 2.5-4 2.5z"/>'|safe) }}{% endmacro %}
+
+{% macro drive() %}{{ _svg('<rect x="3" y="5" width="18" height="6" rx="1.5"/><rect x="3" y="13" width="18" height="6" rx="1.5"/><path d="M7 8h.01M7 16h.01"/>'|safe) }}{% endmacro %}
+
+{% macro upload() %}{{ _svg('<path d="M12 16V4"/><path d="m7.5 8.5 4.5-4.5 4.5 4.5"/><path d="M4 16v3.5h16V16"/>'|safe) }}{% endmacro %}
+
+{% macro download() %}{{ _svg('<path d="M12 4v12"/><path d="m7.5 11.5 4.5 4.5 4.5-4.5"/><path d="M4 16v3.5h16V16"/>'|safe) }}{% endmacro %}
+
+{% macro broadcast() %}{{ _svg('<circle cx="12" cy="12" r="2.5"/><path d="M7.5 7.5a6.4 6.4 0 0 0 0 9M16.5 7.5a6.4 6.4 0 0 1 0 9"/><path d="M4.8 4.8a10.2 10.2 0 0 0 0 14.4M19.2 4.8a10.2 10.2 0 0 1 0 14.4"/>'|safe) }}{% endmacro %}
+
+{% macro settings() %}{{ _svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>'|safe) }}{% endmacro %}
+
+{% macro bulb() %}{{ _svg('<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.5.4.5 1.1.5 1.6v.5h6v-.5c0-.5 0-1.2.5-1.6A6 6 0 0 0 12 3z"/>'|safe) }}{% endmacro %}
+
+{% macro info() %}{{ _svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/>'|safe) }}{% endmacro %}
+
+{% macro menu() %}{{ _svg('<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>'|safe) }}{% endmacro %}
+
+{% macro search() %}{{ _svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>'|safe) }}{% endmacro %}
+
+{% macro bell() %}{{ _svg('<path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7z"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/>'|safe) }}{% endmacro %}
+
+{% macro bell_off() %}{{ _svg('<path d="M18 8a6 6 0 0 0-9.3-5"/><path d="M6 9v-1"/><path d="M4 15h16s-2-1-2-7"/><path d="m3 3 18 18"/>'|safe) }}{% endmacro %}
+
+{% macro contrast() %}{{ _svg('<circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18z" fill="currentColor" stroke="none"/>'|safe) }}{% endmacro %}
+
+{% macro thumb_up() %}{{ _svg('<path d="M7 21V10l4.5-7A2 2 0 0 1 14.7 4l-.9 5H19a2 2 0 0 1 2 2.4l-1.5 7A2 2 0 0 1 17.5 20H7z"/><path d="M7 10H4v11h3"/>'|safe) }}{% endmacro %}
+
+{% macro thumb_down() %}{{ _svg('<path d="M17 3v11l-4.5 7A2 2 0 0 1 9.3 20l.9-5H5a2 2 0 0 1-2-2.4l1.5-7A2 2 0 0 1 6.5 4H17z"/><path d="M17 14h3V3h-3"/>'|safe) }}{% endmacro %}
+
+{% macro share() %}{{ _svg('<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.1M8.2 13.2l7.6 4.1"/>'|safe) }}{% endmacro %}
+
+{% macro save() %}{{ _svg('<path d="M6 4h12v17l-6-4-6 4z"/>'|safe) }}{% endmacro %}
+
+{% macro plus() %}{{ _svg('<path d="M12 5v14"/><path d="M5 12h14"/>'|safe) }}{% endmacro %}
+
+{% macro close() %}{{ _svg('<path d="m6 6 12 12"/><path d="m18 6-12 12"/>'|safe) }}{% endmacro %}
+
+{% macro check() %}{{ _svg('<path d="m5 12.5 4.5 4.5L19 7"/>'|safe) }}{% endmacro %}
+
+{% macro trash() %}{{ _svg('<path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7v13h12V7"/><path d="M10 11v6M14 11v6"/>'|safe) }}{% endmacro %}
+
+{% macro edit() %}{{ _svg('<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M14.5 6.5 17.5 9.5"/>'|safe) }}{% endmacro %}
+
+{% macro refresh() %}{{ _svg('<path d="M20 11a8 8 0 1 0-.6 4"/><path d="M20 5v6h-6"/>'|safe) }}{% endmacro %}
+
+{% macro external() %}{{ _svg('<path d="M14 4h6v6"/><path d="m20 4-8 8"/><path d="M18 14v5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 19V8a1.5 1.5 0 0 1 1.5-1.5H10"/>'|safe) }}{% endmacro %}
+
+{% macro shield() %}{{ _svg('<path d="M12 3 5 6v6c0 4.5 3 7.7 7 9 4-1.3 7-4.5 7-9V6z"/><path d="m9.5 12 1.8 1.8 3.4-3.6"/>'|safe) }}{% endmacro %}
+
+{% macro film() %}{{ _svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 12h18M3 8h4M3 16h4M17 8h4M17 16h4"/>'|safe) }}{% endmacro %}
+
+{% macro youtube() %}{{ _svg('<rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>'|safe) }}{% endmacro %}
+
+{% macro google() %}{{ _svg('<path d="M20.5 12.2c0-.6-.05-1.2-.16-1.7H12v3.4h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.6-3.9 2.6-6.6z"/><path d="M12 21c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.4 0-4.4-1.6-5.1-3.8H3.9v2.3A9 9 0 0 0 12 21z"/><path d="M6.9 13.7a5.4 5.4 0 0 1 0-3.4V8H3.9a9 9 0 0 0 0 8z"/><path d="M12 6.6c1.3 0 2.5.5 3.5 1.4l2.6-2.6A9 9 0 0 0 3.9 8l3 2.3c.7-2.2 2.7-3.7 5.1-3.7z"/>'|safe) }}{% endmacro %}
+
+{% macro folder() %}{{ _svg('<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4L11 8.5h8.5A1.5 1.5 0 0 1 21 10v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/>'|safe) }}{% endmacro %}
+
+{% macro pin() %}{{ _svg('<path d="M9 3h6l-1 6 4 3v2H6v-2l4-3z"/><path d="M12 14v7"/>'|safe) }}{% endmacro %}
+
+{% macro reply() %}{{ _svg('<path d="M9 8 4 12l5 4"/><path d="M4 12h9a6 6 0 0 1 6 6v2"/>'|safe) }}{% endmacro %}
+
+{% macro sort() %}{{ _svg('<path d="M4 7h16"/><path d="M6 12h12"/><path d="M9 17h6"/>'|safe) }}{% endmacro %}
+
+{% macro warning() %}{{ _svg('<path d="M12 4 2.5 20h19z"/><path d="M12 10v4"/><path d="M12 17h.01"/>'|safe) }}{% endmacro %}
+
+{% macro link() %}{{ _svg('<path d="M10 13.5a4 4 0 0 0 5.7 0l2.8-2.8a4 4 0 0 0-5.7-5.7L11.5 6.3"/><path d="M14 10.5a4 4 0 0 0-5.7 0L5.5 13.3a4 4 0 0 0 5.7 5.7l1.3-1.3"/>'|safe) }}{% endmacro %}
+
+{# ---------------------------------------------------- social layer icons #}
+
+{% macro message() %}{{ _svg('<path d="M4 5h16v11H9l-4 3.5V16H4z"/>'|safe) }}{% endmacro %}
+
+{% macro chat() %}{{ _svg('<path d="M3 5h13v9H8l-3.5 3V14H3z"/><path d="M8 8.5h5"/><path d="M19 9h2v9l-2.5-2H12v-2"/>'|safe) }}{% endmacro %}
+
+{% macro lock() %}{{ _svg('<rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1.2"/>'|safe) }}{% endmacro %}
+
+{% macro unlock() %}{{ _svg('<rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"/><circle cx="12" cy="15" r="1.2"/>'|safe) }}{% endmacro %}
+
+{% macro key() %}{{ _svg('<circle cx="8" cy="12" r="4"/><path d="M12 12h9"/><path d="M17.5 12v3"/><path d="M20.5 12v2"/>'|safe) }}{% endmacro %}
+
+{% macro users() %}{{ _svg('<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.6a3.2 3.2 0 0 1 0 5.9"/><path d="M17.5 14.8c2 .7 3.2 2.4 3.2 4.7"/>'|safe) }}{% endmacro %}
+
+{% macro video_response() %}{{ _svg('<rect x="2.5" y="6" width="14" height="10" rx="2"/><path d="m16.5 10.5 5-2.5v8l-5-2.5z"/><path d="M7 20h10"/>'|safe) }}{% endmacro %}
+
+{% macro at_sign() %}{{ _svg('<circle cx="12" cy="12" r="3.5"/><path d="M15.5 12v1.8a2.7 2.7 0 0 0 5.4 0V12a8.9 8.9 0 1 0-3.5 7.1"/>'|safe) }}{% endmacro %}
+
+{% macro send() %}{{ _svg('<path d="M21 3 10.5 13.5"/><path d="M21 3l-6.8 18-3.7-7.5L3 9.8z"/>'|safe) }}{% endmacro %}
+
+{% macro block_user() %}{{ _svg('<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>'|safe) }}{% endmacro %}
+
+{# Private metrics dashboard. #}
+{% macro chart() %}{{ _svg('<path d="M4 4v16h16"/><path d="M8 16v-5"/><path d="M12.5 16V7"/><path d="M17 16v-8"/>'|safe) }}{% endmacro %}
+
+{% macro pulse() %}{{ _svg('<path d="M3 12h4l2.5-6 4 12L16 12h5"/>'|safe) }}{% endmacro %}
+
+{# Creator profiles: direct support, merch, affiliate links. #}
+{% macro heart() %}{{ _svg('<path d="M12 20s-7-4.4-7-9.2A4 4 0 0 1 12 8a4 4 0 0 1 7-1.2c0 4.8-7 13.2-7 13.2z"/>'|safe) }}{% endmacro %}
+
+{% macro tag() %}{{ _svg('<path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9z"/><circle cx="8" cy="8" r="1.4"/>'|safe) }}{% endmacro %}
+
+{% macro coin() %}{{ _svg('<ellipse cx="12" cy="7" rx="7" ry="3"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/>'|safe) }}{% endmacro %}

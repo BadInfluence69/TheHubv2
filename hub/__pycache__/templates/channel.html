@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% import "partials/video_card.html" as cards %}
+{% import "partials/icons.html" as icons %}
+{% import "partials/creator_support.html" as support %}
+
+{% block title %}{{ channel_name }} · The Hub{% endblock %}
+
+{% block content %}
+<div class="panel" style="margin-bottom:28px">
+  <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap">
+    <span class="avatar avatar-lg"
+          style="background: hsl({{ channel_name|hue }} 62% 42%)">
+      {{ channel_name|avatar_letter }}
+    </span>
+
+    <div style="flex:1; min-width:220px">
+      <h1 class="page-title" style="margin-bottom:6px">{{ channel_name }}</h1>
+      <div class="card-meta">
+        <span data-subscriber-count="{{ channel_name }}">{{ subscriber_count }}</span>
+        <span>fan{{ '' if subscriber_count == 1 else 's' }}</span>
+        <span class="dot">·</span>
+        <span>{{ video_count }} video{{ '' if video_count == 1 else 's' }} catalogued</span>
+      </div>
+      {% if creator and creator.tagline %}
+        <p class="small muted" style="margin:8px 0 0">{{ creator.tagline }}</p>
+      {% endif %}
+    </div>
+
+    <div class="btn-group">
+      {# "Fans" is the noun for the count; the button needs a verb, so it reads
+         "Become a fan" before and "Fan" after. A button labelled with a bare
+         noun gives no clue what pressing it does. #}
+      <button type="button"
+              class="btn {{ 'btn-ghost' if subscribed else 'btn-primary' }}"
+              data-subscribe="{{ channel_name }}">
+        <span data-subscribe-label>{{ 'Fan' if subscribed else 'Become a fan' }}</span>
+      </button>
+      {% if can_edit_creator %}
+        <a class="btn btn-ghost" href="{{ url_for('creators.edit', channel_name=channel_name) }}">
+          {{ icons.coin() }} Creator setup
+        </a>
+      {% endif %}
+      <a class="btn btn-ghost" href="{{ url_for('main.search', q=channel_name) }}">
+        {{ icons.search() }} Find more
+      </a>
+    </div>
+  </div>
+
+  {% if creator and creator.about %}
+    <p style="margin:16px 0 0">{{ creator.about }}</p>
+  {% endif %}
+
+  <p class="small faint" style="margin:16px 0 0">
+    Becoming a fan is local to this server. It changes your feed here and does
+    nothing to your YouTube account.
+  </p>
+</div>
+
+{{ support.panel(creator) }}
+
+{{ cards.grid(videos,
+     empty_title='No videos from this channel yet',
+     empty_body='Search for the channel name and anything found gets added to the catalogue.') }}
+
+{{ cards.playlist_modal(nav_playlists) }}
+{% endblock %}

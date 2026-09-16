@@ -1,0 +1,621 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Metrics · The Hub{% endblock %}
+
+{#
+  Styles live here rather than in hub.css on purpose. Every visitor downloads
+  the shared stylesheet, so class names like `.metrics-bar` sitting in it would
+  advertise that a metrics page exists to anyone who opened it. Keeping them
+  inline means this page leaves no trace in anything a normal account loads.
+#}
+{% block head %}
+<style>
+  .mx-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .mx-window { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mx-window a {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+    padding: 6px 11px; border-radius: var(--radius-sm);
+    border: 1px solid var(--ink-600); color: var(--muted); text-decoration: none;
+  }
+  .mx-window a.on { background: var(--ink-650); color: var(--text); border-color: var(--ink-500); }
+
+  /* Daily activity: one labelled row of bars per metric. */
+  .mx-series { display: grid; gap: 14px; }
+  .mx-series-row { display: grid; grid-template-columns: 128px 1fr 74px; gap: 12px; align-items: center; }
+  .mx-series-name {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .mx-bars { display: flex; align-items: flex-end; gap: 2px; height: 46px; }
+  .mx-bars span {
+    flex: 1; min-width: 2px; border-radius: 2px 2px 0 0;
+    background: var(--ink-500); min-height: 2px; transition: background .15s var(--ease);
+  }
+  .mx-bars span[data-v]:hover { background: var(--info); }
+  .mx-bars span.hot { background: var(--info); }
+  .mx-series-total { font-family: var(--mono); font-size: 13px; text-align: right; }
+
+  /* Horizontal share bars. */
+  .mx-share { display: grid; gap: 11px; }
+  .mx-share-row { display: grid; grid-template-columns: 1fr 3fr auto; gap: 12px; align-items: center; }
+  .mx-track { height: 8px; border-radius: 4px; background: var(--ink-700); overflow: hidden; }
+  .mx-track i { display: block; height: 100%; border-radius: 4px; background: var(--info); }
+  .mx-track i.go { background: var(--go); }
+  .mx-track i.amber { background: var(--amber); }
+  .mx-track i.signal { background: var(--signal); }
+
+  /* 24-hour distribution. */
+  .mx-hours { display: flex; align-items: flex-end; gap: 3px; height: 76px; }
+  .mx-hours div { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+  .mx-hours i { display: block; background: var(--ink-500); border-radius: 2px 2px 0 0; min-height: 2px; }
+  .mx-hours i.peak { background: var(--amber); }
+  .mx-hour-axis {
+    display: flex; justify-content: space-between; margin-top: 6px;
+    font-family: var(--mono); font-size: 9px; color: var(--faint);
+  }
+
+  .mx-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .mx-thumb { width: 68px; height: 38px; object-fit: cover; border-radius: 4px; background: var(--ink-700); }
+  .mx-num { font-family: var(--mono); text-align: right; white-space: nowrap; }
+  .mx-table-wrap { overflow-x: auto; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ==================================================================== head #}
+<div class="mx-head">
+  <div>
+    <h1 class="page-title">Metrics</h1>
+    <p class="page-sub">
+      Engagement across this server, rolled up from data already in the
+      database. Visible to admin accounts only.
+    </p>
+  </div>
+  <div class="mx-window">
+    {% for option in [7, 30, 90, 365] %}
+      <a href="{{ url_for('metrics.dashboard', days=option) }}"
+         class="{{ 'on' if days == option }}">{{ option }}D</a>
+    {% endfor %}
+    <a href="{{ url_for('metrics.data_json', days=days) }}">JSON</a>
+  </div>
+</div>
+
+<div class="notice" style="margin-bottom:22px">
+  <strong>{{ icons.lock() }} Private page.</strong>
+  Nothing in the interface links here. Any account without admin rights that
+  requests this URL gets an ordinary 404, so the page reads as non-existent
+  rather than forbidden. Move it by setting <span class="mono">METRICS_PATH</span>
+  in <span class="mono">.env</span>; turn it off completely with
+  <span class="mono">METRICS_ENABLED=0</span>.
+</div>
+
+{# ================================================================ headline #}
+<div class="stat-row" style="margin-bottom:8px">
+  <div class="stat">
+    <div class="stat-value">{{ m.overview.users|compact }}</div>
+    <div class="stat-label">Accounts</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ m.active.month|compact }}</div>
+    <div class="stat-label">Active · 30d</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ m.overview.watches|compact }}</div>
+    <div class="stat-label">Plays</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ (m.overview.watch_seconds / 3600)|round(1) }}<span
+      class="small faint" style="font-size:12px"> h</span></div>
+    <div class="stat-label">Watch time</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ m.overview.videos|compact }}</div>
+    <div class="stat-label">Catalogue</div>
+  </div>
+</div>
+
+<div class="stat-row" style="margin-bottom:24px">
+  <div class="stat">
+    <div class="stat-value">{{ m.overview.comments|compact }}</div>
+    <div class="stat-label">Comments</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ m.overview.votes|compact }}</div>
+    <div class="stat-label">Votes</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ m.overview.subscriptions|compact }}</div>
+    <div class="stat-label">Subscriptions</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ m.overview.searches|compact }}</div>
+    <div class="stat-label">Searches</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ m.overview.active_sessions|compact }}</div>
+    <div class="stat-label">Live sessions</div>
+  </div>
+</div>
+
+{# ================================================================ activity #}
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="section-title">Daily activity · last {{ m.activity.days }} days</h2>
+    <span class="small faint mono">{{ m.activity.labels[0] }} → {{ m.activity.labels[-1] }}</span>
+  </div>
+
+  <div class="mx-series">
+    {% for key, label in [
+        ('watches',  'Plays'),
+        ('searches', 'Searches'),
+        ('votes',    'Likes / dislikes'),
+        ('comments', 'Comments'),
+        ('chat',     'Room posts'),
+        ('messages', 'Direct messages'),
+        ('signups',  'Sign-ups')] %}
+      {% set values = m.activity.series[key] %}
+      {% set peak = values|max %}
+      <div class="mx-series-row">
+        <div class="mx-series-name">{{ label }}</div>
+        <div class="mx-bars">
+          {% for value in values %}
+            <span data-v="{{ value }}"
+                  class="{{ 'hot' if value and value == peak }}"
+                  title="{{ m.activity.labels[loop.index0] }} · {{ value }}"
+                  style="height: {{ (value / peak * 100) if peak else 0 }}%"></span>
+          {% endfor %}
+        </div>
+        <div class="mx-series-total">{{ values|sum|compact }}</div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <p class="small faint" style="margin:16px 0 0">
+    Days with no activity are drawn as empty columns rather than skipped —
+    dropping them would flatten a quiet stretch into a busy-looking line.
+  </p>
+</div>
+
+<div class="mx-split">
+
+  {# ============================================================ engagement #}
+  <div class="panel">
+    <div class="panel-head"><h2 class="section-title">Engagement quality</h2></div>
+
+    <div class="mx-share">
+      <div class="mx-share-row">
+        <span class="small muted">Like ratio</span>
+        <div class="mx-track"><i class="go" style="width: {{ m.engagement.like_ratio }}%"></i></div>
+        <span class="mx-num small">{{ m.engagement.like_ratio }}%</span>
+      </div>
+      <div class="mx-share-row">
+        <span class="small muted">Avg completion</span>
+        <div class="mx-track"><i class="amber" style="width: {{ m.engagement.avg_completion }}%"></i></div>
+        <span class="mx-num small">{{ m.engagement.avg_completion }}%</span>
+      </div>
+      <div class="mx-share-row">
+        <span class="small muted">Finished (≥90%)</span>
+        <div class="mx-track"><i class="go" style="width: {{ m.engagement.finish_rate }}%"></i></div>
+        <span class="mx-num small">{{ m.engagement.finish_rate }}%</span>
+      </div>
+      <div class="mx-share-row">
+        <span class="small muted">Videos commented on</span>
+        <div class="mx-track"><i style="width: {{ m.engagement.comment_rate }}%"></i></div>
+        <span class="mx-num small">{{ m.engagement.comment_rate }}%</span>
+      </div>
+    </div>
+
+    <table class="table" style="margin-top:18px">
+      <tbody>
+        <tr><td class="muted">Likes</td>
+            <td class="mx-num">{{ m.engagement.likes|compact }}</td></tr>
+        <tr><td class="muted">Dislikes</td>
+            <td class="mx-num">{{ m.engagement.dislikes|compact }}</td></tr>
+        <tr><td class="muted">Replies</td>
+            <td class="mx-num">{{ m.engagement.replies|compact }}</td></tr>
+        <tr><td class="muted">Video responses</td>
+            <td class="mx-num">{{ m.engagement.video_responses|compact }}</td></tr>
+        <tr><td class="muted">Distinct videos played</td>
+            <td class="mx-num">{{ m.engagement.watched_videos|compact }}</td></tr>
+      </tbody>
+    </table>
+
+    <p class="small faint" style="margin:14px 0 0">
+      Completion is measured only across the
+      <span class="mono">{{ m.engagement.measurable_watches|compact }}</span>
+      plays ({{ m.engagement.measurable_pct }}%) that recorded a runtime. A
+      resume position with no known duration can't be turned into a percentage,
+      so those rows are left out rather than assumed.
+    </p>
+  </div>
+
+  {# ================================================================ actives #}
+  <div class="panel">
+    <div class="panel-head"><h2 class="section-title">Active accounts</h2></div>
+
+    <div class="mx-share">
+      <div class="mx-share-row">
+        <span class="small muted">Today</span>
+        <div class="mx-track"><i style="width: {{ m.active.day_pct }}%"></i></div>
+        <span class="mx-num small">{{ m.active.day }} / {{ m.active.total }}</span>
+      </div>
+      <div class="mx-share-row">
+        <span class="small muted">Last 7 days</span>
+        <div class="mx-track"><i style="width: {{ m.active.week_pct }}%"></i></div>
+        <span class="mx-num small">{{ m.active.week }} / {{ m.active.total }}</span>
+      </div>
+      <div class="mx-share-row">
+        <span class="small muted">Last 30 days</span>
+        <div class="mx-track"><i style="width: {{ m.active.month_pct }}%"></i></div>
+        <span class="mx-num small">{{ m.active.month }} / {{ m.active.total }}</span>
+      </div>
+    </div>
+
+    <div class="stat-row" style="margin-top:18px">
+      <div class="stat">
+        <div class="stat-value">{{ m.active.stickiness }}%</div>
+        <div class="stat-label">Stickiness (DAU/MAU)</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">{{ m.overview.users_new_30d }}</div>
+        <div class="stat-label">New · 30d</div>
+      </div>
+    </div>
+
+    <p class="small faint" style="margin:14px 0 0">
+      "Active" counts any account that watched, searched, voted, commented,
+      posted in a room, or sent a message in the window — not just sign-ins, so
+      a lurker who only reads chat still registers.
+    </p>
+  </div>
+</div>
+
+{# ============================================================ time of day #}
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="section-title">Plays by hour</h2>
+    <span class="small faint mono">UTC</span>
+  </div>
+  {% set hour_peak = m.by_hour|map(attribute='watches')|max %}
+  <div class="mx-hours">
+    {% for bucket in m.by_hour %}
+      <div title="{{ '%02d'|format(bucket.hour) }}:00 · {{ bucket.watches }} plays">
+        <i class="{{ 'peak' if bucket.watches and bucket.watches == hour_peak }}"
+           style="height: {{ (bucket.watches / hour_peak * 100) if hour_peak else 0 }}%"></i>
+      </div>
+    {% endfor %}
+  </div>
+  <div class="mx-hour-axis">
+    <span>00</span><span>06</span><span>12</span><span>18</span><span>23</span>
+  </div>
+</div>
+
+{# ================================================================ sources #}
+{% if m.sources %}
+<div class="panel">
+  <div class="panel-head"><h2 class="section-title">Where plays come from</h2></div>
+  <div class="mx-table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>Source</th><th class="mx-num">Videos</th><th class="mx-num">Plays</th>
+          <th style="width:32%">Share of plays</th></tr>
+    </thead>
+    <tbody>
+      {% for row in m.sources %}
+      <tr>
+        <td><span class="badge badge-info">{{ row.source }}</span></td>
+        <td class="mx-num">{{ row.videos|compact }}</td>
+        <td class="mx-num">{{ row.watches|compact }}</td>
+        <td>
+          <div style="display:flex; align-items:center; gap:10px">
+            <div class="mx-track" style="flex:1"><i style="width: {{ row.watch_share }}%"></i></div>
+            <span class="mono small faint" style="width:44px; text-align:right">{{ row.watch_share }}%</span>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+
+{# ============================================================= top videos #}
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="section-title">Most watched</h2>
+    <span class="small faint">All time</span>
+  </div>
+
+  {% if m.top_videos %}
+  <div class="mx-table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th style="width:76px"></th><th>Video</th>
+          <th class="mx-num">Plays</th><th class="mx-num">Viewers</th>
+          <th class="mx-num">Hours</th><th class="mx-num">Likes</th>
+          <th class="mx-num">Comments</th></tr>
+    </thead>
+    <tbody>
+      {% for video in m.top_videos %}
+      <tr>
+        <td><img class="mx-thumb" src="{{ video|thumb }}" alt="" loading="lazy"></td>
+        <td>
+          <a href="{{ video|watch_url }}" class="truncate" style="display:block; max-width:340px">
+            {{ video.title }}</a>
+          <span class="small faint truncate" style="display:block; max-width:340px">
+            {{ video.channel_name or '—' }}</span>
+        </td>
+        <td class="mx-num">{{ video.watches|compact }}</td>
+        <td class="mx-num">{{ video.viewers|compact }}</td>
+        <td class="mx-num">{{ (video.seconds / 3600)|round(1) }}</td>
+        <td class="mx-num">{{ video.likes|compact }}</td>
+        <td class="mx-num">{{ video.comments|compact }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty" style="border:none; padding:30px 12px">
+    <div class="empty-icon">{{ icons.chart() }}</div>
+    <h3>No plays recorded yet</h3>
+    <p>Once anything gets watched, the ranking fills in here.</p>
+  </div>
+  {% endif %}
+</div>
+
+<div class="mx-split">
+
+  {# ========================================================== top channels #}
+  <div class="panel">
+    <div class="panel-head"><h2 class="section-title">Top channels</h2></div>
+    {% if m.top_channels %}
+    <div class="mx-table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>Channel</th><th class="mx-num">Plays</th>
+            <th class="mx-num">Videos</th><th class="mx-num">Subs</th></tr>
+      </thead>
+      <tbody>
+        {% for channel in m.top_channels %}
+        <tr>
+          <td class="truncate" style="max-width:200px">{{ channel.channel_name }}</td>
+          <td class="mx-num">{{ channel.watches|compact }}</td>
+          <td class="mx-num">{{ channel.videos|compact }}</td>
+          <td class="mx-num">{{ channel.subscribers|compact }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+      <p class="muted small">Nothing played yet.</p>
+    {% endif %}
+  </div>
+
+  {# ============================================================= searches #}
+  <div class="panel">
+    <div class="panel-head"><h2 class="section-title">Top searches</h2></div>
+    {% if m.searches %}
+    <div class="mx-table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>Query</th><th class="mx-num">Runs</th><th class="mx-num">Accounts</th></tr>
+      </thead>
+      <tbody>
+        {% for search in m.searches %}
+        <tr>
+          <td class="truncate" style="max-width:220px">{{ search.query }}</td>
+          <td class="mx-num">{{ search.runs }}</td>
+          <td class="mx-num">{{ search.searchers }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+      <p class="muted small">No searches recorded.</p>
+    {% endif %}
+  </div>
+</div>
+
+{# ================================================================== people #}
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="section-title">Accounts</h2>
+    <span class="small faint">Totals only</span>
+  </div>
+
+  <div class="mx-table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>Account</th><th class="mx-num">Plays</th><th class="mx-num">Comments</th>
+          <th class="mx-num">Votes</th><th class="mx-num">Subs</th>
+          <th class="mx-num">Posts</th><th class="mx-num">Lists</th>
+          <th class="mx-num">Sessions</th><th>Last play</th></tr>
+    </thead>
+    <tbody>
+      {% for person in m.users %}
+      <tr>
+        <td>
+          <div style="display:flex; align-items:center; gap:9px">
+            <span class="avatar avatar-sm"
+                  style="background: hsl({{ person.avatar_hue }} 62% 45%)">
+              {{ (person.display_name or person.username)|avatar_letter }}
+            </span>
+            <div style="min-width:0">
+              <div class="truncate" style="max-width:150px">{{ person.display_name or person.username }}</div>
+              {% if person.is_admin %}<span class="badge badge-amber">admin</span>{% endif %}
+            </div>
+          </div>
+        </td>
+        <td class="mx-num">{{ person.watches|compact }}</td>
+        <td class="mx-num">{{ person.comments|compact }}</td>
+        <td class="mx-num">{{ person.votes|compact }}</td>
+        <td class="mx-num">{{ person.subs|compact }}</td>
+        <td class="mx-num">{{ person.posts|compact }}</td>
+        <td class="mx-num">{{ person.playlists|compact }}</td>
+        <td class="mx-num">{{ person.sessions }}</td>
+        <td class="small faint mono">
+          {{ person.last_watch|time_ago if person.last_watch else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <p class="small faint" style="margin:14px 0 0">
+    Counts only. This table deliberately doesn't show what anyone watched,
+    searched for, or wrote — the privacy page tells people the operator
+    <em>can</em> read those tables, which is true, but there's no reason for a
+    metrics page to put an individual's viewing history on screen by default.
+  </p>
+</div>
+
+<div class="mx-split">
+
+  {# ============================================================ community #}
+  <div class="panel">
+    <div class="panel-head"><h2 class="section-title">Community</h2></div>
+    <table class="table">
+      <tbody>
+        <tr><td class="muted">Rooms</td><td class="mx-num">{{ m.community.rooms }}</td></tr>
+        <tr><td class="muted">Room posts</td>
+            <td class="mx-num">{{ m.community.posts|compact }}
+              <span class="faint small">(+{{ m.community.posts_30d }} · 30d)</span></td></tr>
+        <tr><td class="muted">Accounts posting</td><td class="mx-num">{{ m.community.posters }}</td></tr>
+        <tr><td class="muted">Conversations</td><td class="mx-num">{{ m.community.conversations }}</td></tr>
+        <tr><td class="muted">Direct messages</td>
+            <td class="mx-num">{{ m.community.dms|compact }}
+              <span class="faint small">(+{{ m.community.dms_30d }} · 30d)</span></td></tr>
+        <tr><td class="muted">Encryption keys set up</td>
+            <td class="mx-num">{{ m.community.keys }} / {{ m.overview.users }}</td></tr>
+        <tr><td class="muted">Blocks in force</td><td class="mx-num">{{ m.community.blocks }}</td></tr>
+        <tr><td class="muted">Ideas board · open</td>
+            <td class="mx-num">{{ m.community.feedback_open }} / {{ m.community.feedback_total }}</td></tr>
+      </tbody>
+    </table>
+
+    <div class="notice notice-amber" style="margin:16px 0 0">
+      <strong>Message volume only.</strong>
+      Direct messages are counted, never read — the server holds ciphertext and
+      no key that could open it. Room posts are readable by the operator, but
+      no post text is shown here.
+    </div>
+  </div>
+
+  {# ================================================================ rooms #}
+  <div class="panel">
+    <div class="panel-head"><h2 class="section-title">Room activity</h2></div>
+    {% if m.rooms %}
+    <div class="mx-table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>Room</th><th class="mx-num">Posts</th>
+            <th class="mx-num">People</th><th>Last post</th></tr>
+      </thead>
+      <tbody>
+        {% for room in m.rooms %}
+        <tr>
+          <td>#{{ room.slug }}
+            {% if room.is_locked %}<span class="badge badge-amber">locked</span>{% endif %}</td>
+          <td class="mx-num">{{ room.posts|compact }}</td>
+          <td class="mx-num">{{ room.posters }}</td>
+          <td class="small faint mono">{{ room.last_post|time_ago if room.last_post else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+      <p class="muted small">No rooms yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+{# ================================================================== studio #}
+{% if m.uploads.total %}
+<div class="panel">
+  <div class="panel-head"><h2 class="section-title">Studio</h2></div>
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-value">{{ m.uploads.published }}</div>
+      <div class="stat-label">Published</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">{{ m.uploads.in_flight }}</div>
+      <div class="stat-label">In progress</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">{{ m.uploads.failed }}</div>
+      <div class="stat-label">Failed</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">{{ m.uploads.bytes_sent|file_size }}</div>
+      <div class="stat-label">Bytes sent</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">{{ m.uploads.connected_accounts }}</div>
+      <div class="stat-label">Google accounts</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ================================================================== system #}
+<div class="mx-split">
+  <div class="panel">
+    <div class="panel-head"><h2 class="section-title">Storage</h2></div>
+    <table class="table">
+      <tbody>
+        <tr><td class="muted">Database</td>
+            <td class="mx-num">{{ m.storage.db_bytes|file_size }}</td></tr>
+        <tr><td class="muted">Uploads</td>
+            <td class="mx-num">{{ m.storage.uploads_bytes|file_size }}</td></tr>
+        <tr><td class="muted">Cache</td>
+            <td class="mx-num">{{ m.storage.cache_bytes|file_size }}</td></tr>
+        <tr><td class="muted">HLS segments</td>
+            <td class="mx-num">{{ m.storage.hls_bytes|file_size }}</td></tr>
+        <tr><td class="muted">Media folders mapped</td>
+            <td class="mx-num">{{ m.storage.media_folders }}</td></tr>
+        <tr><td class="muted">Journal mode</td>
+            <td class="mx-num">{{ m.health.journal_mode }}</td></tr>
+        <tr><td class="muted">Expired sessions to purge</td>
+            <td class="mx-num">{{ m.health.expired_sessions }}</td></tr>
+      </tbody>
+    </table>
+    <p class="small faint" style="margin:12px 0 0">
+      Media library folders aren't measured — walking a drive of films on every
+      page load would be slow enough to notice.
+    </p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2 class="section-title">Table sizes</h2></div>
+    <div class="mx-table-wrap" style="max-height:340px; overflow-y:auto">
+    <table class="table">
+      <tbody>
+        {% for row in m.tables %}
+        <tr>
+          <td class="mono small">{{ row.table }}</td>
+          <td class="mx-num">{{ row.rows|compact }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<p class="small faint" style="text-align:center; margin-top:28px">
+  Generated {{ m.generated_at }} · The Hub v{{ app_version }} ·
+  <span class="mono">{{ metrics_path }}</span>
+</p>
+
+{% endblock %}

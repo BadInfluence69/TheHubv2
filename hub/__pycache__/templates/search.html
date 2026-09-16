@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% import "partials/video_card.html" as cards %}
+
+{% block title %}{{ term }} · Search · The Hub{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ term }}</h1>
+<p class="page-sub">
+  <span class="mono">{{ result_count }}</span> result{{ '' if result_count == 1 else 's' }}
+  across the sources below.
+</p>
+
+<div class="chips" style="margin-bottom:26px">
+  {% for value, label in [('all','Everything'), ('youtube','YouTube'),
+                          ('local','On this drive'), ('tubi','Tubi'),
+                          ('library','Already catalogued')] %}
+    <a class="chip {{ 'active' if source == value }}"
+       href="{{ url_for('main.search', q=term, source=value) }}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+{% if tubi_notice %}
+<p class="page-sub" style="margin:-10px 0 22px">{{ tubi_notice }}</p>
+{% endif %}
+
+{{ cards.grid(videos,
+     empty_title='No matches',
+     empty_body='Try fewer words, or switch sources with the filters above.') }}
+
+{{ cards.playlist_modal(nav_playlists) }}
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}{{ channel_name }} · Creator setup{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; align-items:flex-start">
+  <div>
+    <h1 class="page-title">Creator setup</h1>
+    <p class="page-sub">{{ channel_name }} · {{ fan_count }} fan{{ '' if fan_count == 1 else 's' }}
+       · {{ video_count }} video{{ '' if video_count == 1 else 's' }}</p>
+  </div>
+  <div class="btn-group">
+    <a class="btn btn-ghost" href="{{ url_for('channels.channel', channel_name=channel_name) }}">
+      {{ icons.external() }} View channel
+    </a>
+  </div>
+</div>
+
+{% if not profile.is_published %}
+<div class="notice notice-amber">
+  <strong>Not published yet.</strong>
+  Nothing below is visible to fans until you tick <em>Publish</em> and save.
+  Set your links up first, then turn it on.
+</div>
+{% endif %}
+
+{# ================================================================ profile #}
+<form method="post" class="panel">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="panel-head"><h2 class="section-title">Profile</h2></div>
+
+  <div class="field">
+    <label class="label" for="tagline">Tagline</label>
+    <input id="tagline" name="tagline" maxlength="120"
+           value="{{ profile.tagline or '' }}"
+           placeholder="One line about what you make">
+  </div>
+
+  <div class="field">
+    <label class="label" for="about">About</label>
+    <textarea id="about" name="about" rows="3" maxlength="1000"
+              placeholder="A short introduction for people landing on your channel">{{ profile.about or '' }}</textarea>
+  </div>
+
+  <div class="field">
+    <label class="label" for="support_note">What support pays for</label>
+    <textarea id="support_note" name="support_note" rows="3" maxlength="600"
+              placeholder="e.g. Every dollar goes to studio time and travel for the next series.">{{ profile.support_note or '' }}</textarea>
+    <div class="field-hint">
+      This sits above your support buttons. Being specific here matters more
+      than anything else on the page — people give to a stated purpose far more
+      readily than to a blank tip jar.
+    </div>
+  </div>
+
+  <label class="check">
+    <input type="checkbox" name="is_published" {{ 'checked' if profile.is_published }}>
+    <span class="check-text">Publish — show this on my channel and watch pages</span>
+  </label>
+
+  <div class="btn-group" style="margin-top:16px">
+    <button type="submit" class="btn btn-primary">Save profile</button>
+  </div>
+</form>
+
+{# ================================================================== links #}
+{% for kind in kinds %}
+{% set links = grouped.get(kind, []) %}
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="section-title">{{ kind_labels[kind] }}</h2>
+    <span class="small faint">{{ links|length }} link{{ '' if links|length == 1 else 's' }}</span>
+  </div>
+
+  {% if kind == 'support' %}
+    <p class="small muted" style="margin-top:0">
+      Link your own Stripe, PayPal, Ko-fi, Patreon, Buy Me a Coffee, Liberapay,
+      GitHub Sponsors — whatever you already use. Fans pay you there, directly.
+      This platform never handles the money and takes nothing.
+    </p>
+  {% elif kind == 'affiliate' %}
+    <p class="small muted" style="margin-top:0">
+      Anything you earn a commission on. A disclosure line is added to these
+      automatically — that's a legal requirement in the US, not a style choice,
+      so it isn't optional.
+    </p>
+  {% elif kind == 'merch' %}
+    <p class="small muted" style="margin-top:0">
+      Your store, print-on-demand shop, or a single product page.
+    </p>
+  {% endif %}
+
+  {% if links %}
+  <div style="display:grid; gap:12px; margin-bottom:18px">
+    {% for link in links %}
+    <form method="post" class="creator-row"
+          action="{{ url_for('creators.update_link', channel_name=channel_name, link_id=link.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="creator-row-fields">
+        <input name="label" value="{{ link.label }}" maxlength="80"
+               aria-label="Button label" placeholder="Button label">
+        <input name="url" value="{{ link.url }}" aria-label="Link"
+               placeholder="https://" class="mono">
+        <input name="detail" value="{{ link.detail or '' }}" maxlength="140"
+               aria-label="Detail" placeholder="Optional detail (e.g. $5/month)">
+      </div>
+      <div class="creator-row-meta">
+        {% if link.provider %}<span class="badge badge-info">{{ link.provider }}</span>{% endif %}
+        <span class="mono small faint" title="Total opens">{{ link.clicks }} opens</span>
+        <label class="small faint" style="display:flex; gap:6px; align-items:center; cursor:pointer">
+          <input type="checkbox" name="is_active" style="width:auto"
+                 {{ 'checked' if link.is_active }}> live
+        </label>
+        <button type="submit" class="btn btn-sm">Save</button>
+      </div>
+    </form>
+    <form method="post" style="margin-top:-6px"
+          action="{{ url_for('creators.delete_link', channel_name=channel_name, link_id=link.id) }}"
+          data-confirm="Remove this link?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-sm btn-danger">{{ icons.trash() }} Remove</button>
+    </form>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('creators.add_link', channel_name=channel_name) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="kind" value="{{ kind }}">
+    <div class="creator-row-fields">
+      <input name="label" maxlength="80" placeholder="Button label" required>
+      <input name="url" placeholder="https://" class="mono" required>
+      <input name="detail" maxlength="140" placeholder="Optional detail">
+    </div>
+    <div class="btn-group" style="margin-top:10px">
+      <button type="submit" class="btn">{{ icons.plus() }} Add to {{ kind_labels[kind]|lower }}</button>
+    </div>
+  </form>
+</div>
+{% endfor %}
+
+<div class="notice">
+  <strong>How the money works.</strong>
+  Fans pay you on your own payment provider — this server only stores the link
+  and counts how many times it was opened. That means there's no payout queue
+  to wait on, no platform balance, and no cut taken. It also means the terms of
+  whatever provider you link are between you and them, and any tax owed on what
+  you receive is yours to handle. Worth a word with an accountant once the
+  amounts get real.
+</div>
+{% endblock %}

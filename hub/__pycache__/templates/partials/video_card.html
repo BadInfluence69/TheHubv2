@@ -1,0 +1,135 @@
+{% import "partials/icons.html" as icons %}
+
+{# A single video tile.
+   variant: 'grid' (default) | 'row' | 'rail'
+   progress: 0-100, draws the resume bar
+#}
+{% macro card(video, variant='grid', progress=0, show_channel=true, extra=none) %}
+{% set vid = video.video_id or video.id %}
+{% set source = video.source or 'youtube' %}
+<div class="{{ 'list-row' if variant == 'row' else ('rail-video' if variant == 'rail' else 'card') }}">
+  <a href="{{ url_for('watch.watch', video_id=vid) }}" class="card-thumb"
+     aria-label="{{ video.title }}">
+    <img src="{{ video|thumb }}" alt="" loading="lazy" decoding="async"
+         onerror="this.src='{{ url_for('static', filename='img/placeholder.svg') }}'">
+
+    {% if source != 'youtube' %}
+      <span class="card-source is-{{ source }}">{{ source }}</span>
+    {% endif %}
+
+    {% if video.duration %}
+      <span class="card-duration">{{ video.duration|duration }}</span>
+    {% endif %}
+
+    {% if progress > 0 %}
+      <span class="card-progress"><span style="width: {{ progress }}%"></span></span>
+    {% endif %}
+  </a>
+
+  <div class="card-quick">
+    <button type="button" data-watch-later="{{ vid }}"
+            class="{{ 'is-on' if video.in_watch_later }}"
+            title="{{ 'Remove from Watch later' if video.in_watch_later else 'Save to Watch later' }}">
+      {{ icons.clock() }}
+    </button>
+    <button type="button" data-add-to-playlist="{{ vid }}" title="Add to a playlist">
+      {{ icons.plus() }}
+    </button>
+  </div>
+
+  <div class="card-body">
+    {% if variant == 'grid' and show_channel %}
+      <a href="{{ url_for('channels.channel', channel_name=video.channel_name or video.channel or 'Unknown') }}"
+         class="avatar"
+         style="background: hsl({{ (video.channel_name or video.channel or '?')|hue }} 62% 42%)"
+         title="{{ video.channel_name or video.channel }}">
+        {{ (video.channel_name or video.channel)|avatar_letter }}
+      </a>
+    {% endif %}
+
+    <div style="min-width:0; flex:1">
+      <a href="{{ url_for('watch.watch', video_id=vid) }}">
+        <h3 class="card-title">{{ video.title }}</h3>
+      </a>
+
+      {% if show_channel %}
+        <a href="{{ url_for('channels.channel', channel_name=video.channel_name or video.channel or 'Unknown') }}"
+           class="card-channel">{{ video.channel_name or video.channel or 'Unknown channel' }}</a>
+      {% endif %}
+
+      <div class="card-meta">
+        {% if video.likes %}<span>{{ video.likes|compact }} liked</span><span class="dot">·</span>{% endif %}
+        {% if video.comment_count %}<span>{{ video.comment_count|compact }} comments</span><span class="dot">·</span>{% endif %}
+        {% if video.file_size %}<span>{{ video.file_size|file_size }}</span>
+        {% elif video.last_seen %}<span>{{ video.last_seen|time_ago }}</span>
+        {% elif video.published_at %}<span>{{ video.published_at|time_ago }}</span>{% endif %}
+      </div>
+
+      {% if extra %}{{ extra }}{% endif %}
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+
+{# A whole grid of cards, with an empty state built in. #}
+{% macro grid(videos, tight=false, empty_title='Nothing here yet',
+              empty_body='Search for something and it will show up in your library.') %}
+  {% if videos %}
+    <div class="grid {{ 'grid-tight' if tight }}">
+      {% for video in videos %}{{ card(video) }}{% endfor %}
+    </div>
+  {% else %}
+    {{ empty(empty_title, empty_body) }}
+  {% endif %}
+{% endmacro %}
+
+
+{% macro empty(title, body, action_url=none, action_label=none) %}
+{% import "partials/icons.html" as i %}
+<div class="empty">
+  <div class="empty-icon">{{ i.film() }}</div>
+  <h3>{{ title }}</h3>
+  <p>{{ body }}</p>
+  {% if action_url %}
+    <a href="{{ action_url }}" class="btn btn-primary">{{ action_label }}</a>
+  {% endif %}
+</div>
+{% endmacro %}
+
+
+{# The "add to playlist" dialog. Rendered once per page that needs it. #}
+{% macro playlist_modal(playlists) %}
+{% import "partials/icons.html" as i %}
+<div class="modal-backdrop" data-playlist-modal role="dialog" aria-modal="true"
+     aria-label="Add to playlist">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Save to a playlist</h3>
+      <button class="icon-btn" type="button" data-close-modal aria-label="Close">
+        {{ i.close() }}
+      </button>
+    </div>
+    <div class="modal-body">
+      {% for playlist in playlists %}
+        <label class="playlist-pick">
+          <input type="checkbox" data-playlist-check="{{ playlist.id }}">
+          <span style="flex:1">{{ playlist.title }}</span>
+          <span class="mono faint small">{{ playlist.item_count }}</span>
+        </label>
+      {% endfor %}
+
+      <hr class="hairline">
+
+      <form data-new-playlist>
+        <label class="label" for="new-playlist-title">Start a new playlist</label>
+        <div style="display:flex; gap:8px">
+          <input id="new-playlist-title" type="text" name="title"
+                 placeholder="Name it" maxlength="80">
+          <button type="submit" class="btn btn-primary">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endmacro %}

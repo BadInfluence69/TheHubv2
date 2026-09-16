@@ -1,0 +1,100 @@
+{# An imported macro doesn't inherit the importing template's namespace, so the
+   icon macros have to be pulled in here as well as by the caller. #}
+{% import "partials/icons.html" as icons %}
+
+{# ---------------------------------------------------------------------------
+   The public-facing support block for a creator profile.
+
+   Every outbound anchor here carries rel="noopener noreferrer nofollow" —
+   noopener/noreferrer because these are user-supplied destinations opening in
+   a new tab, and nofollow because this server should not be lending its search
+   ranking to whatever anyone pastes in. Affiliate links additionally get
+   rel="sponsored" and a visible disclosure label: the FTC requires affiliate
+   relationships to be disclosed clearly, and burying that in a tooltip is how
+   platforms get letters. Making it automatic means no creator here can forget.
+--------------------------------------------------------------------------- #}
+
+{% macro panel(profile, compact=false) %}
+{% if profile %}
+<div class="panel creator-support">
+  <div class="panel-head">
+    <h2 class="section-title">{{ icons.heart() }} Support this creator</h2>
+    <span class="badge badge-go">100% direct</span>
+  </div>
+
+  {% if profile.support_note %}
+    <p style="margin-top:0">{{ profile.support_note }}</p>
+  {% endif %}
+
+  {# ------------------------------------------------------------- support #}
+  {% if profile.links.support %}
+  <div class="creator-links">
+    {% for link in profile.links.support %}
+      <a class="btn btn-primary creator-link" href="{{ link.url }}"
+         target="_blank" rel="noopener noreferrer nofollow"
+         data-creator-link="{{ link.id }}">
+        <span>{{ link.label }}</span>
+        {% if link.detail %}<span class="creator-detail">{{ link.detail }}</span>{% endif %}
+      </a>
+    {% endfor %}
+  </div>
+  <p class="small faint" style="margin:12px 0 0">
+    Payments go straight to the creator on their own payment provider. This
+    server takes no cut, sees no card details, and never holds the money.
+  </p>
+  {% endif %}
+
+  {# --------------------------------------------------------------- merch #}
+  {% if profile.links.merch %}
+  <div class="creator-section">
+    <div class="eyebrow">{{ icons.tag() }} Merch</div>
+    <div class="creator-links">
+      {% for link in profile.links.merch %}
+        <a class="btn btn-ghost creator-link" href="{{ link.url }}"
+           target="_blank" rel="noopener noreferrer nofollow"
+           data-creator-link="{{ link.id }}">
+          <span>{{ link.label }}</span>
+          {% if link.detail %}<span class="creator-detail">{{ link.detail }}</span>{% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ----------------------------------------------------------- affiliate #}
+  {% if profile.links.affiliate %}
+  <div class="creator-section">
+    <div class="eyebrow">{{ icons.link() }} Gear &amp; recommendations</div>
+    <div class="creator-links">
+      {% for link in profile.links.affiliate %}
+        <a class="btn btn-ghost creator-link" href="{{ link.url }}"
+           target="_blank" rel="noopener noreferrer nofollow sponsored"
+           data-creator-link="{{ link.id }}">
+          <span>{{ link.label }}</span>
+          {% if link.detail %}<span class="creator-detail">{{ link.detail }}</span>{% endif %}
+        </a>
+      {% endfor %}
+    </div>
+    <p class="small faint" style="margin:10px 0 0">
+      <strong>Affiliate links.</strong> The creator may earn a commission if you
+      buy through these, at no extra cost to you.
+    </p>
+  </div>
+  {% endif %}
+
+  {# -------------------------------------------------------------- social #}
+  {% if profile.links.social and not compact %}
+  <div class="creator-section">
+    <div class="eyebrow">Elsewhere</div>
+    <div class="creator-links">
+      {% for link in profile.links.social %}
+        <a class="btn btn-sm btn-quiet creator-link" href="{{ link.url }}"
+           target="_blank" rel="noopener noreferrer nofollow"
+           data-creator-link="{{ link.id }}">{{ link.label }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}

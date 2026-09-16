@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% import "partials/video_card.html" as cards %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Library · The Hub{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Library</h1>
+<p class="page-sub">Your playlists and history, all stored on this machine.</p>
+
+{% if continue_watching %}
+<section class="shelf">
+  <div class="shelf-head"><h2 class="section-title">Keep watching</h2></div>
+  <div class="shelf-scroll">
+    {% for video in continue_watching %}
+      {{ cards.card(video, progress=percent(video.position_seconds, video.duration_seconds or video.duration)) }}
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="shelf">
+  <div class="shelf-head">
+    <h2 class="section-title">Playlists</h2>
+    <button type="button" class="btn btn-ghost btn-sm"
+            onclick="document.getElementById('new-playlist').classList.toggle('open')">
+      {{ icons.plus() }} New playlist
+    </button>
+  </div>
+
+  <div class="modal-backdrop" id="new-playlist" onclick="if(event.target===this)this.classList.remove('open')">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>New playlist</h3>
+        <button class="icon-btn" type="button"
+                onclick="document.getElementById('new-playlist').classList.remove('open')">
+          {{ icons.close() }}
+        </button>
+      </div>
+      <form method="post" action="{{ url_for('library.create_playlist') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="field">
+            <label for="pl-title">Name</label>
+            <input id="pl-title" type="text" name="title" maxlength="80" required
+                   placeholder="Late night watchlist">
+          </div>
+          <div class="field">
+            <label for="pl-desc">Description</label>
+            <textarea id="pl-desc" name="description" rows="3"
+                      placeholder="Optional"></textarea>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="submit" class="btn btn-primary">Create playlist</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="grid grid-tight">
+    {% for playlist in playlists %}
+    <a href="{{ url_for('library.playlist', slug=playlist.slug) }}" class="card">
+      <div class="card-thumb">
+        {% if playlist.cover %}
+          <img src="{{ playlist.cover }}" alt="" loading="lazy">
+        {% else %}
+          <div style="width:100%;height:100%;display:grid;place-items:center;
+                      background:var(--ink-700);color:var(--ink-500)">
+            {{ icons.list() }}
+          </div>
+        {% endif %}
+        <span class="card-duration">{{ playlist.item_count }} video{{ '' if playlist.item_count == 1 else 's' }}</span>
+      </div>
+      <div class="card-body">
+        <div style="min-width:0">
+          <h3 class="card-title">{{ playlist.title }}</h3>
+          <div class="card-meta">
+            {% if playlist.system_kind %}<span class="badge">Automatic</span>
+            {% else %}<span>{{ playlist.visibility }}</span>{% endif %}
+            <span class="dot">·</span>
+            <span>{{ playlist.updated_at|time_ago }}</span>
+          </div>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="shelf">
+  <div class="shelf-head">
+    <h2 class="section-title">Recently watched</h2>
+    <a href="{{ url_for('library.history') }}" class="btn btn-quiet btn-sm">See all</a>
+  </div>
+  {% if history %}
+    <div class="shelf-scroll">
+      {% for video in history %}{{ cards.card(video) }}{% endfor %}
+    </div>
+  {% else %}
+    <p class="muted small">Nothing watched yet.</p>
+  {% endif %}
+</section>
+
+{{ cards.playlist_modal(nav_playlists) }}
+{% endblock %}

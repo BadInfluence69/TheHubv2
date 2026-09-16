@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Live feed · The Hub{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Live feed</h1>
+<p class="page-sub">Point OBS or ffmpeg at the folder below and the stream shows
+   up here. Anything ending in <span class="mono">.m3u8</span> is picked up
+   automatically.</p>
+
+{% if playlists %}
+  <div class="player-shell" style="margin-bottom:20px">
+    <video id="live-player" controls autoplay muted playsinline></video>
+  </div>
+
+  <div class="chips" style="margin-bottom:24px">
+    {% for name in playlists %}
+      <button type="button" class="chip {{ 'active' if loop.first }}"
+              data-stream="{{ url_for('media.live_file', filename=name) }}">{{ name }}</button>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty">
+    <div class="empty-icon">{{ icons.broadcast() }}</div>
+    <h3>No live stream running</h3>
+    <p>Write an HLS playlist into the folder below and refresh this page.</p>
+    <code style="display:block; max-width:640px; margin:0 auto; padding:14px;
+                 background:var(--ink-800); border:1px solid var(--ink-600);
+                 border-radius:8px; font-family:var(--mono); font-size:12px;
+                 text-align:left; overflow-x:auto">{{ hls_dir }}</code>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if playlists %}
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+<script>
+(function () {
+  const video = document.getElementById('live-player');
+  let hls = null;
+
+  function load(src) {
+    if (hls) { hls.destroy(); hls = null; }
+    if (window.Hls && Hls.isSupported()) {
+      hls = new Hls({ lowLatencyMode: true });
+      hls.loadSource(src);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = src;
+    } else {
+      Hub.toast('This browser cannot play HLS streams.', 'error');
+    }
+  }
+
+  document.querySelectorAll('[data-stream]').forEach((button, index) => {
+    if (index === 0) load(button.dataset.stream);
+    button.addEventListener('click', () => {
+      document.querySelectorAll('[data-stream]').forEach(b => b.classList.remove('active'));
+      button.classList.add('active');
+      load(button.dataset.stream);
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

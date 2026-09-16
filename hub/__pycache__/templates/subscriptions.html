@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% import "partials/video_card.html" as cards %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Subscriptions · The Hub{% endblock %}
+
+{% block content %}
+<div style="display:flex; align-items:baseline; justify-content:space-between; gap:16px; flex-wrap:wrap">
+  <div>
+    <h1 class="page-title">Subscriptions</h1>
+    <p class="page-sub">
+      {{ subscriptions|length }} channel{{ '' if subscriptions|length == 1 else 's' }},
+      followed locally.
+    </p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('channels.manage') }}">
+    {{ icons.settings() }} Manage
+  </a>
+</div>
+
+{% if subscriptions %}
+<div class="shelf-scroll" style="grid-auto-columns:minmax(112px,112px); margin-bottom:32px">
+  {% for subscription in subscriptions %}
+    <a href="{{ url_for('channels.channel', channel_name=subscription.channel_name) }}"
+       style="text-align:center">
+      <span class="avatar avatar-lg" style="margin:0 auto 8px;
+            background: hsl({{ subscription.channel_name|hue }} 62% 42%)">
+        {{ subscription.channel_name|avatar_letter }}
+      </span>
+      <div class="small truncate">{{ subscription.channel_name }}</div>
+      <div class="mono faint" style="font-size:10.5px">{{ subscription.video_count }}</div>
+    </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{{ cards.grid(videos,
+     empty_title='Nothing from your channels yet',
+     empty_body='Follow a few channels, then search for them once so their videos land in the catalogue.') }}
+
+{{ cards.playlist_modal(nav_playlists) }}
+{% endblock %}

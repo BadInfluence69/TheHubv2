@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Messages · The Hub{% endblock %}
+
+{% block content %}
+<div class="dm-layout">
+
+  {# ------------------------------------------------------------- threads #}
+  <section>
+    <div class="panel-head" style="margin-bottom:14px">
+      <div>
+        <h1 class="page-title" style="margin:0">Messages</h1>
+        <p class="page-sub" style="margin:2px 0 0">
+          Private, and encrypted before they leave your browser.
+        </p>
+      </div>
+      <button type="button" class="btn btn-primary" data-new-message>
+        {{ icons.plus() }} New message
+      </button>
+    </div>
+
+    {% if not my_keys %}
+      <div class="notice notice-amber">
+        <strong>{{ icons.key() }} Set up encryption first.</strong>
+        Messages here are encrypted with a key only you hold, so there's one
+        short setup step before you can send or read anything.
+        <div style="margin-top:10px">
+          <a class="btn btn-primary btn-sm" href="{{ url_for('messages.key_setup') }}">
+            Set a passphrase
+          </a>
+        </div>
+      </div>
+    {% else %}
+      <div class="notice" data-locked-notice hidden>
+        <strong>{{ icons.lock() }} Your messages are locked on this device.</strong>
+        Enter your passphrase to read them.
+        <div class="field-row" style="margin-top:10px">
+          <input type="password" data-inline-passphrase placeholder="Message passphrase"
+                 autocomplete="off">
+          <button type="button" class="btn btn-primary" data-inline-unlock>Unlock</button>
+        </div>
+        <p class="small mono faint" data-key-status style="margin-top:8px"></p>
+      </div>
+    {% endif %}
+
+    <div class="panel panel-tight" data-conversation-list>
+      {% for conversation in conversations %}
+        <a class="dm-row" href="{{ url_for('messages.thread', conversation_id=conversation.id) }}"
+           data-conversation="{{ conversation.id }}"
+           data-their-key="{{ conversation.other_public_key or '' }}"
+           data-last-ciphertext="{{ conversation.last_ciphertext or '' }}"
+           data-last-iv="{{ conversation.last_iv or '' }}">
+          <span class="avatar"
+                style="background: hsl({{ conversation.other_avatar_hue }} 62% 45%)">
+            {{ (conversation.other_display_name or conversation.other_username)|avatar_letter }}
+          </span>
+          <div class="dm-row-main">
+            <div class="dm-row-head">
+              <span class="dm-row-name">
+                {{ conversation.other_display_name or conversation.other_username }}
+              </span>
+              <time class="comment-time" datetime="{{ conversation.last_at }}">
+                {{ conversation.last_at|time_ago }}
+              </time>
+            </div>
+            <div class="dm-row-preview" data-preview>
+              {% if conversation.last_ciphertext %}
+                <span class="mono faint">{{ icons.lock() }} encrypted</span>
+              {% else %}
+                <span class="faint">No messages yet</span>
+              {% endif %}
+            </div>
+          </div>
+          {% if conversation.unread %}
+            <span class="badge badge-signal">{{ conversation.unread }}</span>
+          {% endif %}
+        </a>
+      {% else %}
+        <div class="empty">
+          <div class="empty-icon">{{ icons.message() }}</div>
+          <h3>No conversations yet</h3>
+          <p>Only people with an account on this server can be messaged.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# --------------------------------------------------------------- aside #}
+  <aside>
+    <div class="panel">
+      <div class="panel-head"><h2 class="section-title">How this works</h2></div>
+      <p class="small muted">
+        Your browser encrypts each message with a key derived from your key pair
+        and the recipient's. The server stores the result and cannot read it —
+        not because it promises not to, because it hasn't got the key.
+      </p>
+      <p class="small muted">
+        It does know who you messaged and when. Routing a message requires that.
+        <a href="{{ url_for('main.privacy') }}" style="color:var(--info)">Full detail</a>.
+      </p>
+      {% if my_keys %}
+        <div class="hairline"></div>
+        <div class="stat">
+          <div class="stat-label">Your fingerprint</div>
+          <div class="stat-value mono" style="font-size:12px">{{ my_keys.fingerprint }}</div>
+        </div>
+        <a class="btn btn-quiet btn-sm btn-block" style="margin-top:10px"
+           href="{{ url_for('messages.key_setup') }}">Manage key</a>
+      {% endif %}
+    </div>
+
+    {% if blocked %}
+    <div class="panel">
+      <div class="panel-head"><h2 class="section-title">Blocked</h2></div>
+      {% for person in blocked %}
+        <div class="list-row">
+          <span class="avatar avatar-sm"
+                style="background: hsl({{ person.avatar_hue }} 62% 45%)">
+            {{ (person.display_name or person.username)|avatar_letter }}
+          </span>
+          <span class="truncate">{{ person.display_name or person.username }}</span>
+          <button type="button" class="btn btn-quiet btn-sm" style="margin-left:auto"
+                  data-unblock="{{ person.id }}">Unblock</button>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </aside>
+</div>
+
+{# ------------------------------------------------------- new message modal #}
+<div class="modal-backdrop" data-people-modal hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2 class="section-title">New message</h2>
+      <button type="button" class="icon-btn" data-close-modal aria-label="Close">
+        {{ icons.close() }}
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label class="label" for="people-search">Who on this server?</label>
+        <input type="search" id="people-search" data-people-search autocomplete="off"
+               placeholder="Start typing a username">
+        <div class="field-hint">
+          Only accounts registered here appear. There's no way to message
+          someone who hasn't signed up.
+        </div>
+      </div>
+      <div data-people-results class="people-results"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/e2ee.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/messages.js') }}" defer></script>
+<script>
+  window.HubUser = { id: {{ current_user.id }}, hasKeys: {{ 'true' if my_keys else 'false' }} };
+</script>
+{% endblock %}

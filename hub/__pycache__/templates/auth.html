@@ -1,0 +1,102 @@
+{% import "partials/icons.html" as icons %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="robots" content="noindex, nofollow">
+<title>{{ 'Create your account' if mode == 'register' else 'Sign in' }} · The Hub</title>
+<link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/hub.css') }}">
+</head>
+<body>
+
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="brand-mark">{{ icons.play() }}</span>
+      <span class="brand-word">The Hub</span>
+    </div>
+    <div class="auth-tag">Private media server</div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="notice {{ 'notice-signal' if category == 'error' }}"
+             role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    {% if first_run %}
+      <div class="notice">
+        <strong>First run</strong>
+        No accounts exist yet. The one you create now becomes the administrator
+        for this server.
+      </div>
+    {% endif %}
+
+    {% if mode == 'register' %}
+      <form method="post" action="{{ url_for('auth.register') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" type="text" name="username" required autofocus
+                 autocomplete="username" minlength="3" maxlength="32"
+                 pattern="[A-Za-z0-9_.\-]+">
+          <div class="field-hint">Letters, numbers, and _ - . — 3 to 32 characters.</div>
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" name="password" required
+                 autocomplete="new-password" minlength="8">
+          <div class="field-hint">At least 8 characters.</div>
+        </div>
+
+        <div class="field">
+          <label for="confirm">Confirm password</label>
+          <input id="confirm" type="password" name="confirm" required
+                 autocomplete="new-password" minlength="8">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Create account</button>
+      </form>
+
+      <div class="auth-switch">
+        Already set up? <a href="{{ url_for('auth.login') }}">Sign in</a>
+      </div>
+
+    {% else %}
+      <form method="post" action="{{ url_for('auth.login') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" type="text" name="username" required autofocus
+                 autocomplete="username">
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" name="password" required
+                 autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+      </form>
+
+      <div class="auth-switch">
+        {% if first_run %}
+          <a href="{{ url_for('auth.register') }}">Create the first account</a>
+        {% else %}
+          No account? <a href="{{ url_for('auth.register') }}">Create one</a>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+</body>
+</html>

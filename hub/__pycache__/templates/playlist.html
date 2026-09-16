@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% import "partials/video_card.html" as cards %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}{{ playlist.title }} · The Hub{% endblock %}
+
+{% block content %}
+<div class="panel" style="margin-bottom:26px">
+  <div style="display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap">
+    <div style="min-width:240px; flex:1">
+      <div class="eyebrow">Playlist</div>
+      <h1 class="page-title" style="margin:6px 0 8px">{{ playlist.title }}</h1>
+      {% if playlist.description %}
+        <p class="muted" style="margin:0 0 10px">{{ playlist.description }}</p>
+      {% endif %}
+      <div class="card-meta">
+        <span>{{ videos|length }} video{{ '' if videos|length == 1 else 's' }}</span>
+        {% if total_duration %}
+          <span class="dot">·</span><span>{{ total_duration|duration }} total</span>
+        {% endif %}
+        <span class="dot">·</span><span>Updated {{ playlist.updated_at|time_ago }}</span>
+      </div>
+    </div>
+
+    <div class="btn-group" style="align-items:flex-start">
+      {% if videos %}
+        <a class="btn btn-primary"
+           href="{{ url_for('watch.watch', video_id=videos[0].video_id) }}">
+          {{ icons.play() }} Play all
+        </a>
+      {% endif %}
+      {% if not playlist.system_kind %}
+        <button type="button" class="btn btn-ghost"
+                onclick="document.getElementById('edit-playlist').classList.toggle('open')">
+          {{ icons.edit() }} Edit
+        </button>
+        <form method="post" action="{{ url_for('library.delete_playlist', slug=playlist.slug) }}"
+              data-confirm="Delete this playlist? The videos stay in your catalogue.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-danger">{{ icons.trash() }} Delete</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if not playlist.system_kind %}
+<div class="modal-backdrop" id="edit-playlist"
+     onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Edit playlist</h3>
+      <button class="icon-btn" type="button"
+              onclick="document.getElementById('edit-playlist').classList.remove('open')">
+        {{ icons.close() }}
+      </button>
+    </div>
+    <form method="post" action="{{ url_for('library.update_playlist', slug=playlist.slug) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-body">
+        <div class="field">
+          <label for="edit-title">Name</label>
+          <input id="edit-title" type="text" name="title" value="{{ playlist.title }}" maxlength="80">
+        </div>
+        <div class="field">
+          <label for="edit-desc">Description</label>
+          <textarea id="edit-desc" name="description" rows="3">{{ playlist.description }}</textarea>
+        </div>
+        <div class="field">
+          <label for="edit-vis">Who can see it</label>
+          <select id="edit-vis" name="visibility">
+            <option value="private" {{ 'selected' if playlist.visibility == 'private' }}>Only me</option>
+            <option value="unlisted" {{ 'selected' if playlist.visibility == 'unlisted' }}>Anyone with the link</option>
+            <option value="public" {{ 'selected' if playlist.visibility == 'public' }}>Everyone on this server</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="submit" class="btn btn-primary">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if videos %}
+  <div style="display:grid; gap:4px">
+    {% for video in videos %}
+      <div style="display:flex; align-items:center; gap:10px">
+        <span class="mono faint" style="width:28px; text-align:right">{{ loop.index }}</span>
+        <div style="flex:1; min-width:0">{{ cards.card(video, variant='row') }}</div>
+        <button type="button" class="icon-btn" title="Remove from this playlist"
+                onclick="Hub.api('/api/playlists/remove',{method:'POST',body:{playlist_id:{{ playlist.id }},video_id:'{{ video.video_id }}'}}).then(()=>this.closest('div').parentElement.remove())">
+          {{ icons.close() }}
+        </button>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  {{ cards.empty('This playlist is empty',
+       'Use the Save button on any video to drop it in here.',
+       url_for('main.home'), 'Find something') }}
+{% endif %}
+
+{{ cards.playlist_modal(nav_playlists) }}
+{% endblock %}

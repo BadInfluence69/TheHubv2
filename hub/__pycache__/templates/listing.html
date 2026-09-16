@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% import "partials/video_card.html" as cards %}
+
+{% block title %}{{ heading }} · The Hub{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ heading }}</h1>
+{% if subheading %}<p class="page-sub">{{ subheading }}</p>{% endif %}
+
+{{ cards.grid(videos,
+     empty_title='Nothing ranked yet',
+     empty_body='Watch and vote on a few things and this page fills in.') }}
+
+{{ cards.playlist_modal(nav_playlists) }}
+{% endblock %}

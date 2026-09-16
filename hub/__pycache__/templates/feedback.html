@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% import "partials/icons.html" as icons %}
+
+{% block title %}Ideas · The Hub{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Ideas board</h1>
+<p class="page-sub">A running list of what to build next. Anyone with an account
+   on this server can post and vote.</p>
+
+<div class="panel">
+  <form method="post" action="{{ url_for('feedback.create') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+      <label for="fb-title">What should it do?</label>
+      <input id="fb-title" type="text" name="title" maxlength="120" required
+             placeholder="Remember playback speed per channel">
+    </div>
+    <div class="field">
+      <label for="fb-body">Any detail</label>
+      <textarea id="fb-body" name="suggestion" rows="3" required
+                placeholder="Why it would help, and how you'd expect it to work."></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">{{ icons.plus() }} Post idea</button>
+  </form>
+</div>
+
+<div class="chips" style="margin:24px 0">
+  <a class="chip {{ 'active' if not status }}" href="{{ url_for('feedback.board') }}">All</a>
+  {% for value in ['open','planned','shipped','declined'] %}
+    <a class="chip {{ 'active' if status == value }}"
+       href="{{ url_for('feedback.board', status=value) }}">{{ value|capitalize }}</a>
+  {% endfor %}
+</div>
+
+{% for post in posts %}
+<div class="panel" id="post-{{ post.id }}">
+  <div class="panel-head" style="align-items:flex-start">
+    <div style="min-width:0">
+      <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:4px">
+        <h2 class="section-title">{{ post.title }}</h2>
+        <span class="badge {{ 'badge-go' if post.status == 'shipped'
+                              else ('badge-amber' if post.status == 'planned' else '') }}">
+          {{ post.status }}
+        </span>
+      </div>
+      <div class="card-meta">
+        <span>{{ post.username }}</span><span class="dot">·</span>
+        <span>{{ post.created_at|time_ago }}</span>
+      </div>
+    </div>
+
+    <form method="post" action="{{ url_for('feedback.vote', feedback_id=post.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn {{ 'btn-primary' if post.voted else 'btn-ghost' }}">
+        {{ icons.thumb_up() }} {{ post.upvotes }}
+      </button>
+    </form>
+  </div>
+
+  <p style="white-space:pre-wrap; margin:0 0 16px">{{ post.suggestion }}</p>
+
+  {% if current_user.is_admin %}
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px">
+    <form method="post" action="{{ url_for('feedback.set_status', feedback_id=post.id) }}"
+          style="display:flex; gap:8px">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <select name="status" style="width:auto">
+        {% for value in ['open','planned','shipped','declined'] %}
+          <option value="{{ value }}" {{ 'selected' if post.status == value }}>{{ value }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-sm">Set status</button>
+    </form>
+    <form method="post" action="{{ url_for('feedback.delete', feedback_id=post.id) }}"
+          data-confirm="Delete this idea?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-danger btn-sm">{{ icons.trash() }}</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if post.comments %}
+  <div style="border-left:2px solid var(--ink-600); padding-left:14px; margin-bottom:14px">
+    {% for comment in post.comments %}
+    <div style="padding:8px 0">
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:2px">
+        <span class="comment-author">{{ comment.username }}</span>
+        <time class="comment-time" datetime="{{ comment.created_at }}">{{ comment.created_at|time_ago }}</time>
+      </div>
+      <div class="small" style="white-space:pre-wrap">{{ comment.body }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('feedback.comment', feedback_id=post.id) }}"
+        style="display:flex; gap:8px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="body" placeholder="Add a note" maxlength="1000">
+    <button type="submit" class="btn btn-ghost">Reply</button>
+  </form>
+</div>
+{% else %}
+  <div class="empty">
+    <div class="empty-icon">{{ icons.bulb() }}</div>
+    <h3>No ideas yet</h3>
+    <p>Post the first one using the form above.</p>
+  </div>
+{% endfor %}
+{% endblock %}
